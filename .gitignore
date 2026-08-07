@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.output/
+.nuxt/
+.env
+apps/workers/.baileys-sessions/
+*.log
+prisma/generated/

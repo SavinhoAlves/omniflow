@@ -1,0 +1,9 @@
+<template>
+  <div>Redirecionando...</div>
+</template>
+
+<script setup lang="ts">
+import { navigateTo } from 'nuxt/app';
+
+await navigateTo('/dashboard');
+</script>

@@ -1,0 +1,330 @@
+// ============================================================
+// FUNDAÇÃO: Tenant (Company), Usuários, Departamentos, Auth
+// ============================================================
+// Estratégia de multi-tenancy: shared schema + company_id em
+// toda tabela de domínio + RLS no Postgres como defesa extra.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlatformRole {
+  SUPER_ADMIN
+  SUPPORT
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum WhatsAppProviderType {
+  BAILEYS
+  META_CLOUD_API
+  EVOLUTION_API
+}
+
+enum InstanceConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  CONNECTING
+  QR_PENDING
+  ERROR
+}
+
+enum ConversationStatus {
+  OPEN
+  RESOLVED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  SYSTEM
+}
+
+model PlatformUser {
+  id                    String                 @id @default(uuid())
+  name                  String
+  email                 String                 @unique
+  passwordHash          String                 @map("password_hash")
+  role                  PlatformRole           @default(SUPER_ADMIN)
+  active                Boolean                @default(true)
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  platformRefreshTokens PlatformRefreshToken[]
+
+  @@map("platform_users")
+}
+
+model PlatformRefreshToken {
+  id             String       @id @default(uuid())
+  platformUserId String       @map("platform_user_id")
+  platformUser   PlatformUser @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
+  tokenHash      String       @map("token_hash")
+  userAgent      String?      @map("user_agent")
+  ipAddress      String?      @map("ip_address")
+  revokedAt      DateTime?    @map("revoked_at")
+  expiresAt      DateTime     @map("expires_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([platformUserId])
+  @@map("platform_refresh_tokens")
+}
+
+model Company {
+  id                String             @id @default(uuid())
+  name              String
+  slug              String             @unique
+  cnpj              String?            @unique
+  active            Boolean            @default(true)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  users             User[]
+  departments       Department[]
+  whatsAppInstances WhatsAppInstance[]
+  rolePermissions   RolePermission[]
+  workflows         Workflow[]
+  contacts          Contact[]
+  conversations     Conversation[]
+
+  @@map("companies")
+}
+
+model User {
+  id                      String                   @id @default(uuid())
+  companyId               String                   @map("company_id")
+  company                 Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                    String
+  email                   String
+  passwordHash            String                   @map("password_hash")
+  role                    UserRole                 @default(MEMBER)
+  active                  Boolean                  @default(true)
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  refreshTokens           RefreshToken[]
+  userDepartments         UserDepartment[]
+  userPermissionOverrides UserPermissionOverride[]
+  assignedConversations   Conversation[]           @relation("AssignedConversations")
+  sentMessages            Message[]                @relation("SentMessages")
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@map("users")
+}
+
+model Department {
+  id                  String           @id @default(uuid())
+  companyId           String           @map("company_id")
+  company             Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                String
+  description         String?
+  isDefault           Boolean          @default(false) @map("is_default")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  userDepartments     UserDepartment[]
+  whatsAppInstances   WhatsAppInstance[]
+  workflowFallbackFor Workflow[]       @relation("WorkflowFallbackDepartment")
+  workflowRules       WorkflowRule[]
+  conversations       Conversation[]
+
+  @@index([companyId])
+  @@map("departments")
+}
+
+model UserDepartment {
+  id           String     @id @default(uuid())
+  userId       String     @map("user_id")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  isManager    Boolean    @default(false) @map("is_manager")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@unique([userId, departmentId])
+  @@index([userId])
+  @@index([departmentId])
+  @@map("user_departments")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @map("token_hash")
+  userAgent String?   @map("user_agent")
+  ipAddress String?   @map("ip_address")
+  revokedAt DateTime? @map("revoked_at")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model WhatsAppInstance {
+  id                  String                    @id @default(uuid())
+  companyId           String                    @map("company_id")
+  company             Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name                String
+  description         String?
+  phoneNumber         String?                   @map("phone_number")
+  providerType        WhatsAppProviderType      @map("provider_type")
+  credentials         String?
+  connectionStatus    InstanceConnectionStatus  @default(DISCONNECTED) @map("connection_status")
+  qrCode              String?                   @map("qrcode")
+  defaultDepartmentId String?                   @map("default_department_id")
+  defaultDepartment   Department?               @relation(fields: [defaultDepartmentId], references: [id], onDelete: SetNull)
+  createdAt           DateTime                  @default(now()) @map("created_at")
+  updatedAt           DateTime                  @updatedAt @map("updated_at")
+  conversations       Conversation[]
+
+  @@index([companyId])
+  @@map("whatsapp_instances")
+}
+
+// ============================================================
+// Contatos — clientes que entram em contato via WhatsApp
+// ============================================================
+
+model Contact {
+  id            String         @id @default(uuid())
+  companyId     String         @map("company_id")
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  phoneNumber   String         @map("phone_number")
+  name          String?
+  avatarUrl     String?        @map("avatar_url")
+  notes         String?
+  conversations Conversation[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@unique([companyId, phoneNumber])
+  @@index([companyId])
+  @@map("contacts")
+}
+
+// ============================================================
+// Conversas e Mensagens
+// ============================================================
+
+model Conversation {
+  id            String             @id @default(uuid())
+  companyId     String             @map("company_id")
+  company       Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId     String             @map("contact_id")
+  contact       Contact            @relation(fields: [contactId], references: [id])
+  instanceId    String             @map("instance_id")
+  instance      WhatsAppInstance   @relation(fields: [instanceId], references: [id])
+  assignedToId  String?            @map("assigned_to_id")
+  assignedTo    User?              @relation("AssignedConversations", fields: [assignedToId], references: [id], onDelete: SetNull)
+  departmentId  String?            @map("department_id")
+  department    Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  status        ConversationStatus @default(OPEN)
+  lastMessageAt DateTime?          @map("last_message_at")
+  messages      Message[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([contactId])
+  @@index([instanceId])
+  @@map("conversations")
+}
+
+model Message {
+  id                String           @id @default(uuid())
+  conversationId    String           @map("conversation_id")
+  conversation      Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction         MessageDirection
+  type              MessageType      @default(TEXT)
+  content           String?
+  mediaUrl          String?          @map("media_url")
+  authorId          String?          @map("author_id")
+  author            User?            @relation("SentMessages", fields: [authorId], references: [id], onDelete: SetNull)
+  providerMessageId String?          @map("provider_message_id")
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// ============================================================
+// Fluxo de atendimento (bot de boas-vindas + direcionamento)
+// ============================================================
+
+model Workflow {
+  id                   String         @id @default(uuid())
+  companyId            String         @map("company_id")
+  company              Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enabled              Boolean        @default(false)
+  welcomeMessage       String?        @map("welcome_message")
+  fallbackDepartmentId String?        @map("fallback_department_id")
+  fallbackDepartment   Department?    @relation("WorkflowFallbackDepartment", fields: [fallbackDepartmentId], references: [id], onDelete: SetNull)
+  rules                WorkflowRule[]
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  @@unique([companyId])
+  @@index([companyId])
+  @@map("workflows")
+}
+
+model WorkflowRule {
+  id           String     @id @default(uuid())
+  workflowId   String     @map("workflow_id")
+  workflow     Workflow   @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  position     Int
+  optionLabel  String     @map("option_label")
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@index([workflowId])
+  @@index([departmentId])
+  @@map("workflow_rules")
+}
+
+model RolePermission {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      UserRole
+  resource  String
+  action    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([companyId, role, resource, action])
+  @@index([companyId])
+  @@map("role_permissions")
+}
+
+model UserPermissionOverride {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource  String
+  action    String
+  allowed   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, resource, action])
+  @@index([userId])
+  @@map("user_permission_overrides")
+}

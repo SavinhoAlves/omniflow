@@ -1,0 +1,10 @@
+{
+  "name": "@omnichannel/providers",
+  "version": "0.0.1",
+  "main": "src/whatsapp-provider.factory.ts",
+  "types": "src/whatsapp-provider.factory.ts",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@omnichannel/database",
+  "version": "0.0.1",
+  "main": "src/client.ts",
+  "types": "src/client.ts",
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "bcrypt": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^22.20.1",
+    "prisma": "^5.20.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.0"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy && psql $DATABASE_URL -f prisma/rls.sql",
+    "seed": "tsx prisma/seed.ts"
+  }
+}
