@@ -1,15 +1,8 @@
 <template>
   <div>
-    <div class="mb-8 flex items-start justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold text-white">Atendentes</h1>
-        <p class="text-zinc-400 mt-2">
-          Gerencie sua equipe e o departamento de cada pessoa.
-        </p>
-      </div>
-
+    <div class="mb-5 flex justify-end">
       <button
-        class="flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-medium text-white transition hover:bg-blue-500"
+        class="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-medium text-white transition hover:bg-blue-500"
         @click="openCreateModal"
       >
         <UserPlus :size="18" />
@@ -17,14 +10,14 @@
       </button>
     </div>
 
-    <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+    <div class="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden">
       <!-- Loading -->
-      <div v-if="loading" class="space-y-3">
+      <div v-if="loading" class="p-6 space-y-3">
         <div v-for="n in 3" :key="n" class="h-14 animate-pulse rounded-xl bg-zinc-800/60" />
       </div>
 
       <!-- Vazio -->
-      <div v-else-if="users.length === 0" class="flex flex-col items-center py-10 text-center text-zinc-500">
+      <div v-else-if="users.length === 0" class="flex flex-col items-center px-6 py-10 text-center text-zinc-500">
         <Users :size="40" class="mb-3" />
         Nenhum atendente cadastrado ainda.
         <button class="mt-4 text-sm font-medium text-blue-400 hover:text-blue-300" @click="openCreateModal">
@@ -36,25 +29,29 @@
       <div v-else class="overflow-x-auto">
         <table class="w-full text-left">
           <thead>
-            <tr class="border-b border-zinc-800 text-zinc-500">
-              <th class="py-3 font-medium">Nome</th>
-              <th class="py-3 font-medium">Email</th>
-              <th class="py-3 font-medium">Papel</th>
-              <th class="py-3 font-medium">Departamentos</th>
-              <th class="py-3 font-medium">Status</th>
+            <tr class="border-b border-zinc-800 text-xs text-zinc-500 uppercase tracking-wide">
+              <th class="px-4 py-3 font-medium text-left">Nome</th>
+              <th class="px-4 py-3 font-medium text-left">Email</th>
+              <th class="px-4 py-3 font-medium text-left">Papel</th>
+              <th class="px-4 py-3 font-medium text-left">Departamentos</th>
+              <th class="px-4 py-3 font-medium text-left">Status</th>
             </tr>
           </thead>
 
           <tbody>
-            <tr v-for="user in users" :key="user.id" class="border-b border-zinc-800 last:border-0">
-              <td class="py-4 font-medium text-white">{{ user.name }}</td>
-              <td class="py-4 text-zinc-400">{{ user.email }}</td>
-              <td class="py-4">
+            <tr
+              v-for="user in users"
+              :key="user.id"
+              class="border-b border-zinc-800 last:border-0 hover:bg-zinc-800/40 transition-colors"
+            >
+              <td class="px-4 py-3.5 text-sm font-medium text-white">{{ user.name }}</td>
+              <td class="px-4 py-3.5 text-sm text-zinc-400">{{ user.email }}</td>
+              <td class="px-4 py-3.5">
                 <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="roleBadge[user.role]">
                   {{ roleLabel[user.role] }}
                 </span>
               </td>
-              <td class="py-4">
+              <td class="px-4 py-3.5">
                 <div v-if="user.departmentNames.length" class="flex flex-wrap gap-1.5">
                   <span
                     v-for="name in user.departmentNames"
@@ -66,7 +63,7 @@
                 </div>
                 <span v-else class="text-sm text-zinc-600">—</span>
               </td>
-              <td class="py-4">
+              <td class="px-4 py-3.5">
                 <span class="flex items-center gap-1.5 text-sm" :class="user.active ? 'text-green-400' : 'text-zinc-500'">
                   <span class="h-1.5 w-1.5 rounded-full" :class="user.active ? 'bg-green-400' : 'bg-zinc-600'" />
                   {{ user.active ? "Ativo" : "Inativo" }}

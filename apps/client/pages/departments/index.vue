@@ -1,15 +1,8 @@
 <template>
   <div>
-    <div class="mb-8 flex items-start justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold text-white">Departamentos</h1>
-        <p class="text-zinc-400 mt-2">
-          Organize sua equipe em setores — atendimentos são direcionados pra cá.
-        </p>
-      </div>
-
+    <div class="mb-5 flex justify-end">
       <button
-        class="flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-medium text-white transition hover:bg-blue-500"
+        class="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-medium text-white transition hover:bg-blue-500"
         @click="openCreateModal"
       >
         <Plus :size="18" />

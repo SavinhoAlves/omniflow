@@ -2,7 +2,7 @@
   <header class="h-16 border-b border-zinc-800 bg-zinc-950 flex items-center justify-between px-6 shrink-0">
     <div>
       <h2 class="font-semibold text-white leading-tight">{{ pageInfo.title }}</h2>
-      <p class="text-xs text-zinc-500">{{ pageInfo.subtitle }}</p>
+      <p v-if="pageInfo.subtitle" class="text-xs text-zinc-500">{{ pageInfo.subtitle }}</p>
     </div>
 
     <div class="flex items-center gap-3">

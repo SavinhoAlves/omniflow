@@ -1,14 +1,7 @@
 <template>
   <div>
-    <div class="mb-8 flex items-start justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-bold text-white">Fluxo de atendimento</h1>
-        <p class="text-zinc-400 mt-2">
-          Defina como o bot recebe o cliente e direciona pro departamento certo.
-        </p>
-      </div>
-
-      <label class="flex shrink-0 items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5">
+    <div class="mb-5 flex justify-end">
+      <label class="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5">
         <span class="text-sm text-zinc-400">{{ workflow.enabled ? "Bot ativo" : "Bot desativado" }}</span>
         <button
           type="button"

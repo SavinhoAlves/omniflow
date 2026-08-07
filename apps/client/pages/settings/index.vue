@@ -1,10 +1,5 @@
 <template>
   <div>
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-white">Configurações</h1>
-      <p class="text-zinc-400 mt-2">Dados da empresa e preferências gerais.</p>
-    </div>
-
     <div class="space-y-6">
       <!-- Perfil da empresa -->
       <section class="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">

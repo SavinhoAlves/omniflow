@@ -1,9 +1,8 @@
 <template>
-  <div>Redirecionando...</div>
+  <div />
 </template>
 
 <script setup lang="ts">
-import { navigateTo } from 'nuxt/app';
-
-await navigateTo('/dashboard');
+definePageMeta({ layout: false })
+await navigateTo("/dashboard")
 </script>

@@ -52,7 +52,10 @@
           v-for="conv in conversations"
           :key="conv.id"
           class="w-full flex items-start gap-3 p-3 hover:bg-zinc-800/60 transition-colors border-b border-zinc-800/50 text-left"
-          :class="{ 'bg-zinc-800': activeConversationId === conv.id }"
+          :class="[
+            activeConversationId === conv.id ? 'bg-zinc-800' : '',
+            conv.status === 'RESOLVED' && activeConversationId !== conv.id ? 'opacity-60' : '',
+          ]"
           @click="selectConversation(conv.id)"
         >
           <!-- Avatar -->
@@ -66,7 +69,10 @@
           <!-- Info -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-1">
-              <p class="text-sm font-medium text-zinc-100 truncate">
+              <p
+                class="text-sm font-medium truncate"
+                :class="conv.status === 'RESOLVED' ? 'text-zinc-500' : 'text-zinc-100'"
+              >
                 {{ conv.contact.name || conv.contact.phoneNumber }}
               </p>
               <span class="text-[10px] text-zinc-600 shrink-0">
@@ -74,7 +80,7 @@
               </span>
             </div>
             <div class="flex items-center gap-1 mt-0.5">
-              <span v-if="conv.messages?.[0]?.direction === 'OUTBOUND'" class="text-blue-400 shrink-0">
+              <span v-if="conv.messages?.[0]?.direction === 'OUTBOUND' && conv.status === 'OPEN'" class="text-blue-400 shrink-0">
                 <CheckCheck :size="12" />
               </span>
               <p class="text-xs text-zinc-500 truncate">
@@ -83,11 +89,9 @@
             </div>
           </div>
 
-          <!-- Status dot -->
-          <span
-            class="mt-1.5 h-2 w-2 rounded-full shrink-0"
-            :class="conv.status === 'OPEN' ? 'bg-emerald-400' : 'bg-zinc-600'"
-          />
+          <!-- Status indicator -->
+          <span v-if="conv.status === 'OPEN'" class="mt-1.5 h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
+          <CheckCircle v-else :size="13" class="mt-0.5 text-zinc-500 shrink-0" />
         </button>
       </div>
     </div>
@@ -233,7 +237,7 @@ import {
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
-definePageMeta({ layout: "chat" })
+definePageMeta({ layout: "chat", middleware: "auth" })
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 

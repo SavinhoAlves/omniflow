@@ -45,7 +45,7 @@ const menu = [
   { name: "Canais",                path: "/whatsapp",      icon: MessageCircle },
   { name: "Departamentos",         path: "/departments",   icon: Network },
   { name: "Atendentes",            path: "/users",         icon: Users },
-  { name: "Fluxos de atendimento", path: "/workflows",     icon: Workflow },
+  { name: "Fluxo de atendimento",  path: "/workflows",     icon: Workflow },
   { name: "Relatórios",       path: "/reports",       icon: BarChart2 },
   { name: "Configurações", path: "/settings",   icon: Settings },
 ]
