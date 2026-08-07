@@ -7,13 +7,22 @@
       <!-- Header -->
       <div class="border-b border-zinc-800/80">
         <div class="flex items-center justify-between px-4 pb-2.5 pt-4">
-          <h2 class="text-sm font-semibold text-white">Conversas</h2>
-          <span
-            v-if="openCount > 0"
-            class="min-w-[18px] rounded-full bg-blue-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white tabular-nums"
+          <div class="flex items-center gap-2">
+            <h2 class="text-sm font-semibold text-white">Conversas</h2>
+            <span
+              v-if="openCount > 0"
+              class="min-w-[18px] rounded-full bg-blue-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white tabular-nums"
+            >
+              {{ openCount }}
+            </span>
+          </div>
+          <button
+            class="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-blue-500"
+            @click="openNewConvModal"
           >
-            {{ openCount }}
-          </span>
+            <Plus :size="12" />
+            Nova
+          </button>
         </div>
         <div class="px-3 pb-3">
           <div class="relative">
@@ -43,6 +52,21 @@
         </button>
       </div>
 
+      <!-- Department filter -->
+      <div v-if="allDepts.length > 0" class="border-b border-zinc-800/80 px-3 py-2">
+        <div class="relative">
+          <Layers :size="12" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600" />
+          <select
+            v-model="filterDeptId"
+            class="w-full appearance-none rounded-lg border border-zinc-800 bg-zinc-800/60 py-1.5 pl-7 pr-6 text-[11px] text-zinc-400 outline-none transition focus:border-blue-500 focus:text-zinc-200"
+          >
+            <option value="">Todos os departamentos</option>
+            <option v-for="dept in allDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+          </select>
+          <ChevronDown :size="11" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600" />
+        </div>
+      </div>
+
       <!-- List -->
       <div class="flex-1 overflow-y-auto">
         <div v-if="listLoading && conversations.length === 0" class="space-y-px p-2">
@@ -57,6 +81,13 @@
 
         <div v-else-if="conversations.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
           <p class="text-sm text-zinc-600">Nenhuma conversa</p>
+          <button
+            class="mt-3 flex items-center gap-1 rounded-lg border border-zinc-800 px-3 py-1.5 text-xs text-zinc-500 transition hover:border-zinc-700 hover:text-zinc-300"
+            @click="openNewConvModal"
+          >
+            <Plus :size="12" />
+            Iniciar conversa
+          </button>
         </div>
 
         <div v-else class="p-2 space-y-px">
@@ -102,6 +133,11 @@
                   {{ conv.messages?.[0]?.content || 'Nova conversa' }}
                 </p>
               </div>
+              <div v-if="conv.department" class="mt-1.5">
+                <span class="inline-block rounded-md bg-zinc-800 px-1.5 py-0.5 text-[9px] font-medium text-zinc-500">
+                  {{ conv.department.name }}
+                </span>
+              </div>
             </div>
           </button>
         </div>
@@ -133,6 +169,7 @@
           </div>
           <p class="text-[11px] text-zinc-500 truncate leading-none mt-0.5">
             {{ activeConversation.contact.phoneNumber }}
+            <span v-if="activeConversation.department" class="text-zinc-700"> · {{ activeConversation.department.name }}</span>
             <span v-if="activeConversation.assignedTo" class="text-zinc-600"> · {{ activeConversation.assignedTo.name }}</span>
           </p>
         </div>
@@ -175,7 +212,7 @@
             <div class="h-px flex-1 bg-zinc-800/60" />
           </div>
 
-          <!-- System event — very subtle, no chrome -->
+          <!-- System event -->
           <div v-if="msg.type === 'SYSTEM'" class="flex justify-center py-0.5">
             <span class="text-[10px] text-zinc-700">{{ msg.content }}</span>
           </div>
@@ -235,8 +272,15 @@
       </div>
       <div class="space-y-1 text-center">
         <p class="text-sm font-medium text-zinc-500">Nenhuma conversa selecionada</p>
-        <p class="text-xs text-zinc-700">Selecione uma conversa para começar</p>
+        <p class="text-xs text-zinc-700">Selecione uma conversa ou inicie uma nova</p>
       </div>
+      <button
+        class="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+        @click="openNewConvModal"
+      >
+        <Plus :size="14" />
+        Nova conversa
+      </button>
     </div>
 
     <!-- ============================================================
@@ -246,7 +290,7 @@
       v-if="activeConversation && showInfoPanel"
       class="w-[232px] shrink-0 flex flex-col border-l border-zinc-800/80 bg-zinc-950"
     >
-      <!-- Contact card — centered, prominent -->
+      <!-- Contact card -->
       <div class="flex flex-col items-center px-5 pb-5 pt-7 text-center">
         <div class="relative mb-3.5">
           <div
@@ -342,14 +386,14 @@
           </div>
           <div class="min-w-0">
             <p class="truncate text-[11px] font-medium text-zinc-300">{{ activeConversation.instance?.name || 'WhatsApp' }}</p>
-            <p class="text-[9px] text-zinc-700">WhatsApp</p>
+            <p class="text-[9px] text-zinc-700">{{ providerLabel[activeConversation.instance?.providerType] ?? 'Canal' }}</p>
           </div>
         </div>
       </div>
 
       <div class="flex-1" />
 
-      <!-- Actions — bottom -->
+      <!-- Actions -->
       <div class="border-t border-zinc-800/80 p-4">
         <button
           v-if="activeConversation.status === 'OPEN'"
@@ -372,7 +416,112 @@
       </div>
     </div>
 
-    <!-- Modal: transfer -->
+    <!-- ============================================================
+         Modal: Nova conversa (outbound)
+    ============================================================ -->
+    <Teleport to="body">
+      <div
+        v-if="showNewConvModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+        @click.self="showNewConvModal = false"
+      >
+        <div class="w-full max-w-md rounded-2xl border border-zinc-800/80 bg-zinc-900 p-6 shadow-2xl">
+          <div class="mb-5 flex items-start justify-between">
+            <div>
+              <h2 class="text-base font-semibold text-white">Nova conversa</h2>
+              <p class="mt-0.5 text-xs text-zinc-500">Inicie uma conversa — a mensagem será entregue pelo canal escolhido.</p>
+            </div>
+            <button class="mt-0.5 text-zinc-600 transition hover:text-zinc-300" @click="showNewConvModal = false">
+              <X :size="18" />
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Número / ID do contato -->
+            <div>
+              <label class="text-xs font-medium text-zinc-400">Número do contato</label>
+              <input
+                v-model="newConvForm.contactPhone"
+                type="text"
+                placeholder="+5521999999999"
+                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-blue-500"
+              />
+              <p class="mt-1 text-[11px] text-zinc-600">WhatsApp: inclua o código do país (+55…). Messenger/Instagram: use o PSID/IGSID do contato.</p>
+            </div>
+
+            <!-- Canal (instância conectada) -->
+            <div>
+              <label class="text-xs font-medium text-zinc-400">Canal</label>
+              <select
+                v-model="newConvForm.instanceId"
+                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+              >
+                <option value="" disabled>Selecione um canal...</option>
+                <option v-for="inst in connectedInstances" :key="inst.id" :value="inst.id">
+                  {{ inst.name }} · {{ providerLabel[inst.providerType] ?? inst.providerType }}
+                </option>
+              </select>
+              <p v-if="connectedInstances.length === 0" class="mt-1 text-[11px] text-yellow-500">
+                Nenhum canal conectado. Conecte um canal em <NuxtLink to="/whatsapp" class="underline">Canais</NuxtLink>.
+              </p>
+            </div>
+
+            <!-- Departamento -->
+            <div>
+              <label class="text-xs font-medium text-zinc-400">Departamento <span class="text-zinc-600">(opcional)</span></label>
+              <select
+                v-model="newConvForm.departmentId"
+                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+              >
+                <option value="">Sem departamento</option>
+                <option v-for="dept in allDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+              </select>
+            </div>
+
+            <!-- Atendente -->
+            <div>
+              <label class="text-xs font-medium text-zinc-400">Atendente <span class="text-zinc-600">(opcional)</span></label>
+              <select
+                v-model="newConvForm.assignedToId"
+                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+              >
+                <option value="">Não atribuído</option>
+                <option v-for="user in transferUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
+              </select>
+            </div>
+
+            <!-- Mensagem inicial -->
+            <div>
+              <label class="text-xs font-medium text-zinc-400">Mensagem inicial</label>
+              <textarea
+                v-model="newConvForm.message"
+                rows="3"
+                placeholder="Olá! Como posso ajudar?"
+                class="mt-1.5 w-full resize-none rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-blue-500"
+              />
+            </div>
+
+            <p v-if="newConvError" class="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {{ newConvError }}
+            </p>
+
+            <button
+              :disabled="startingConv || !newConvForm.contactPhone.trim() || !newConvForm.instanceId || !newConvForm.message.trim()"
+              class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              @click="doStartConversation"
+            >
+              <LoaderCircle v-if="startingConv" :size="15" class="animate-spin" />
+              <Send v-else :size="14" />
+              {{ startingConv ? 'Enviando…' : 'Iniciar conversa' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ============================================================
+         Modal: Transferir conversa
+    ============================================================ -->
     <Teleport to="body">
       <div
         v-if="showTransferModal"
@@ -383,7 +532,7 @@
           <div class="mb-5 flex items-start justify-between">
             <div>
               <h2 class="text-base font-semibold text-white">Transferir conversa</h2>
-              <p class="mt-0.5 text-xs text-zinc-500">Altere o atendente ou o departamento responsável.</p>
+              <p class="mt-0.5 text-xs text-zinc-500">Altere o departamento e/ou o atendente responsável.</p>
             </div>
             <button class="mt-0.5 text-zinc-600 transition hover:text-zinc-300" @click="showTransferModal = false">
               <X :size="18" />
@@ -391,16 +540,7 @@
           </div>
 
           <div class="space-y-4">
-            <div>
-              <label class="text-xs font-medium text-zinc-400">Atendente</label>
-              <select
-                v-model="transferForm.assignedToId"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-              >
-                <option value="">Sem atribuição</option>
-                <option v-for="user in transferUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
-              </select>
-            </div>
+            <!-- Departamento primeiro — filtra atendentes -->
             <div>
               <label class="text-xs font-medium text-zinc-400">Departamento</label>
               <select
@@ -408,7 +548,27 @@
                 class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
               >
                 <option value="">Sem departamento</option>
-                <option v-for="dept in transferDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+                <option v-for="dept in allDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-xs font-medium text-zinc-400">
+                Atendente
+                <span v-if="transferForm.departmentId" class="ml-1 text-zinc-600">(do departamento)</span>
+              </label>
+              <select
+                v-model="transferForm.assignedToId"
+                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+              >
+                <option value="">Sem atribuição</option>
+                <option
+                  v-for="user in filteredTransferUsers"
+                  :key="user.id"
+                  :value="user.id"
+                >
+                  {{ user.name }}
+                </option>
               </select>
             </div>
 
@@ -420,7 +580,7 @@
               @click="confirmTransfer"
             >
               <LoaderCircle v-if="transferring" :size="15" class="animate-spin" />
-              Confirmar
+              Confirmar transferência
             </button>
           </div>
         </div>
@@ -434,6 +594,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, reactive } from
 import {
   Search, CheckCheck, CheckCircle, RotateCcw, Send, MessageSquare,
   ArrowRightLeft, PanelRight, X, LoaderCircle, User, Layers,
+  Plus, ChevronDown,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
@@ -472,11 +633,20 @@ interface Message {
   author?: { id: string; name: string } | null
 }
 
+interface ChannelInstance {
+  id: string
+  name: string
+  providerType: string
+  connectionStatus: string
+  phoneNumber?: string | null
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 
 const api = useApi()
 
 const search = ref("")
+const filterDeptId = ref("")
 const activeTab = ref<"ALL" | "MINE" | "RESOLVED">("ALL")
 const conversations = ref<ConvSummary[]>([])
 const listLoading = ref(true)
@@ -490,12 +660,29 @@ const showInfoPanel = ref(true)
 const messagesContainerRef = ref<HTMLElement | null>(null)
 const scrollAnchorRef = ref<HTMLElement | null>(null)
 
+// Transfer
 const showTransferModal = ref(false)
 const transferring = ref(false)
 const transferError = ref("")
-const transferUsers = ref<{ id: string; name: string; email?: string }[]>([])
-const transferDepts = ref<{ id: string; name: string }[]>([])
+const transferUsers = ref<{ id: string; name: string; departmentIds?: string[] }[]>([])
+const allDepts = ref<{ id: string; name: string }[]>([])
 const transferForm = reactive({ assignedToId: "", departmentId: "" })
+
+// Nova conversa
+const showNewConvModal = ref(false)
+const startingConv = ref(false)
+const newConvError = ref("")
+const newConvForm = reactive({
+  contactPhone: "",
+  instanceId: "",
+  departmentId: "",
+  assignedToId: "",
+  message: "",
+})
+const instances = ref<ChannelInstance[]>([])
+const connectedInstances = computed(() =>
+  instances.value.filter((i) => i.connectionStatus === "CONNECTED")
+)
 
 const TABS = [
   { label: "Todas", value: "ALL" as const },
@@ -503,9 +690,27 @@ const TABS = [
   { label: "Resolvidas", value: "RESOLVED" as const },
 ]
 
+// ── Provider labels ───────────────────────────────────────────────────────────
+
+const providerLabel: Record<string, string> = {
+  BAILEYS:            "WhatsApp QR",
+  META_CLOUD_API:     "WhatsApp API",
+  EVOLUTION_API:      "Evolution",
+  FACEBOOK_MESSENGER: "Messenger",
+  INSTAGRAM:          "Instagram",
+}
+
 // ── Computed ─────────────────────────────────────────────────────────────────
 
 const openCount = computed(() => conversations.value.filter((c) => c.status === "OPEN").length)
+
+// Filtra atendentes pelo departamento selecionado no modal de transferência
+const filteredTransferUsers = computed(() => {
+  if (!transferForm.departmentId) return transferUsers.value
+  return transferUsers.value.filter(
+    (u) => !u.departmentIds?.length || u.departmentIds.includes(transferForm.departmentId)
+  )
+})
 
 // ── Search debounce ───────────────────────────────────────────────────────────
 
@@ -571,7 +776,7 @@ function showDateSeparator(msg: Message, prev?: Message) {
   return new Date(msg.createdAt).toDateString() !== new Date(prev.createdAt).toDateString()
 }
 
-// ── Load conversations ────────────────────────────────────────────────────────
+// ── Load data ─────────────────────────────────────────────────────────────────
 
 let currentLoadId = 0
 
@@ -582,6 +787,7 @@ async function loadConversations() {
     if (activeTab.value === "MINE") params.set("mine", "true")
     params.set("status", activeTab.value === "RESOLVED" ? "RESOLVED" : "OPEN")
     if (debouncedSearch.value) params.set("search", debouncedSearch.value)
+    if (filterDeptId.value) params.set("departmentId", filterDeptId.value)
 
     const result = await api<ConvSummary[]>(`/conversations?${params}`)
     if (loadId === currentLoadId) conversations.value = result
@@ -592,13 +798,15 @@ async function loadConversations() {
   }
 }
 
-async function loadTransferOptions() {
-  const [usersRes, deptsRes] = await Promise.allSettled([
+async function loadSidebarData() {
+  const [usersRes, deptsRes, instancesRes] = await Promise.allSettled([
     api<{ id: string; name: string; email: string }[]>("/users"),
     api<{ id: string; name: string }[]>("/departments"),
+    api<ChannelInstance[]>("/whatsapp/instances"),
   ])
   transferUsers.value = usersRes.status === "fulfilled" ? usersRes.value : []
-  transferDepts.value = deptsRes.status === "fulfilled" ? deptsRes.value : []
+  allDepts.value = deptsRes.status === "fulfilled" ? deptsRes.value : []
+  instances.value = instancesRes.status === "fulfilled" ? instancesRes.value : []
 }
 
 // ── Conversation select ───────────────────────────────────────────────────────
@@ -721,6 +929,43 @@ async function confirmTransfer() {
   }
 }
 
+// ── Nova conversa outbound ────────────────────────────────────────────────────
+
+function openNewConvModal() {
+  newConvForm.contactPhone = ""
+  newConvForm.instanceId = connectedInstances.value[0]?.id ?? ""
+  newConvForm.departmentId = ""
+  newConvForm.assignedToId = ""
+  newConvForm.message = ""
+  newConvError.value = ""
+  showNewConvModal.value = true
+}
+
+async function doStartConversation() {
+  if (!newConvForm.contactPhone.trim() || !newConvForm.instanceId || !newConvForm.message.trim()) return
+  startingConv.value = true
+  newConvError.value = ""
+  try {
+    const conversation = await api<{ id: string }>("/conversations/start", {
+      method: "POST",
+      body: {
+        contactPhone: newConvForm.contactPhone.trim(),
+        instanceId: newConvForm.instanceId,
+        departmentId: newConvForm.departmentId || null,
+        assignedToId: newConvForm.assignedToId || null,
+        message: newConvForm.message.trim(),
+      },
+    })
+    showNewConvModal.value = false
+    await loadConversations()
+    await selectConversation(conversation.id)
+  } catch (err: any) {
+    newConvError.value = err?.data?.message ?? "Não foi possível iniciar a conversa."
+  } finally {
+    startingConv.value = false
+  }
+}
+
 // ── Textarea resize ───────────────────────────────────────────────────────────
 
 function autoResize(e: Event) {
@@ -742,9 +987,14 @@ watch(debouncedSearch, () => {
   loadConversations()
 })
 
+watch(filterDeptId, () => {
+  listLoading.value = true
+  loadConversations()
+})
+
 onMounted(() => {
   loadConversations()
-  loadTransferOptions()
+  loadSidebarData()
   listInterval = setInterval(loadConversations, 5000)
 })
 

@@ -1,15 +1,26 @@
 import { prisma } from "@omnichannel/database";
-import { Queue } from "bullmq";
-
-function getRedisOptions() {
-  const url = process.env.REDIS_URL ?? "redis://localhost:6379";
-  const parsed = new URL(url);
-  return { host: parsed.hostname, port: Number(parsed.port || 6379), password: parsed.password || undefined };
-}
-
-const baileysQueue = new Queue("baileys-commands", { connection: getRedisOptions() });
+import { WhatsAppProviderFactory, WhatsAppProviderType } from "@omnichannel/providers";
+import { decryptCredentials } from "../../shared/credentials-crypto";
+import { BaileysQueueClient } from "../whatsapp/baileys-queue.client";
 
 export class ConversationsService {
+  private providerFactory: WhatsAppProviderFactory;
+
+  constructor() {
+    const baileysQueueClient = new BaileysQueueClient();
+    this.providerFactory = new WhatsAppProviderFactory({
+      getCredentials: async (instanceId) => {
+        const inst = await prisma.whatsAppInstance.findFirstOrThrow({
+          where: { id: instanceId },
+          select: { credentials: true },
+        });
+        if (!inst.credentials) throw new Error(`Instância ${instanceId} sem credenciais`);
+        return decryptCredentials(inst.credentials as string);
+      },
+      baileysQueue: baileysQueueClient,
+    });
+  }
+
   async list(filters: {
     status?: "OPEN" | "RESOLVED";
     mine?: boolean;
@@ -65,7 +76,6 @@ export class ConversationsService {
   }
 
   async getMessages(conversationId: string, before?: string) {
-    // Verifica pertencimento ao tenant (companyId injetado pelo middleware em Conversation)
     await prisma.conversation.findFirstOrThrow({ where: { id: conversationId }, select: { id: true } });
 
     const where: any = { conversationId };
@@ -83,7 +93,7 @@ export class ConversationsService {
       where: { id: conversationId },
       include: {
         contact: { select: { phoneNumber: true } },
-        instance: { select: { providerType: true } },
+        instance: { select: { id: true, providerType: true } },
       },
     });
 
@@ -98,24 +108,91 @@ export class ConversationsService {
       }),
     ]);
 
-    if (conv.instance.providerType === "BAILEYS") {
-      void baileysQueue
-        .add("send_text", {
-          instanceId: conv.instanceId,
-          command: "send_text",
-          payload: { to: conv.contact.phoneNumber, text: content },
-        })
-        .catch(() => {});
-    }
+    const provider = this.providerFactory.get(conv.instance.providerType as WhatsAppProviderType);
+    void provider
+      .sendTextMessage(conv.instance.id, { to: conv.contact.phoneNumber, text: content })
+      .catch((err: Error) =>
+        console.error(`[conversations] Falha ao enviar via ${conv.instance.providerType}:`, err.message)
+      );
 
     return message;
+  }
+
+  async startConversation(input: {
+    contactPhone: string;
+    instanceId: string;
+    departmentId?: string | null;
+    assignedToId?: string | null;
+    message: string;
+    authorId: string;
+  }) {
+    // Descobre a instância e o tenant (RLS já filtra por companyId do usuário)
+    const instance = await prisma.whatsAppInstance.findFirstOrThrow({
+      where: { id: input.instanceId },
+      select: { id: true, companyId: true, providerType: true, defaultDepartmentId: true },
+    });
+
+    const { companyId } = instance;
+
+    // Upsert de contato
+    const contact = await prisma.contact.upsert({
+      where: { companyId_phoneNumber: { companyId, phoneNumber: input.contactPhone } },
+      create: { companyId, phoneNumber: input.contactPhone, name: input.contactPhone },
+      update: {},
+    });
+
+    const departmentId = input.departmentId ?? instance.defaultDepartmentId ?? undefined;
+
+    // Reutiliza conversa OPEN existente com este contato nesta instância
+    let conversation = await prisma.conversation.findFirst({
+      where: { companyId, contactId: contact.id, instanceId: input.instanceId, status: "OPEN" },
+    });
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          companyId,
+          contactId: contact.id,
+          instanceId: input.instanceId,
+          departmentId: departmentId ?? undefined,
+          assignedToId: input.assignedToId ?? undefined,
+          lastMessageAt: new Date(),
+        },
+      });
+    }
+
+    // Persiste a mensagem inicial
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        direction: "OUTBOUND",
+        type: "TEXT",
+        content: input.message,
+        authorId: input.authorId,
+      },
+    });
+
+    await prisma.conversation.updateMany({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date() },
+    });
+
+    // Envia via provider (fire-and-forget)
+    const provider = this.providerFactory.get(instance.providerType as WhatsAppProviderType);
+    void provider
+      .sendTextMessage(instance.id, { to: input.contactPhone, text: input.message })
+      .catch((err: Error) =>
+        console.error(`[conversations] Falha ao iniciar conversa via ${instance.providerType}:`, err.message)
+      );
+
+    return conversation;
   }
 
   async assign(
     conversationId: string,
     data: { assignedToId?: string | null; departmentId?: string | null },
   ) {
-    const [conv] = await Promise.all([
+    await Promise.all([
       prisma.conversation.updateMany({
         where: { id: conversationId },
         data: {
@@ -129,15 +206,14 @@ export class ConversationsService {
           direction: "OUTBOUND",
           type: "SYSTEM",
           content:
-            data.assignedToId !== undefined
-              ? data.assignedToId
+            data.departmentId !== undefined && data.assignedToId === undefined
+              ? "Departamento alterado."
+              : data.assignedToId
                 ? "Conversa atribuída a um atendente."
-                : "Atribuição removida."
-              : "Departamento alterado.",
+                : "Atribuição removida.",
         },
       }),
     ]);
-    return conv;
   }
 
   async changeStatus(conversationId: string, status: "OPEN" | "RESOLVED") {

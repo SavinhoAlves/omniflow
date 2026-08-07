@@ -17,8 +17,34 @@ const statusSchema = z.object({
   status: z.enum(["OPEN", "RESOLVED"]),
 });
 
+const initiateSchema = z.object({
+  contactPhone: z.string().min(4).max(30),
+  instanceId: z.string().uuid(),
+  departmentId: z.string().uuid().nullable().optional(),
+  assignedToId: z.string().uuid().nullable().optional(),
+  message: z.string().min(1).max(4096),
+});
+
 export async function conversationsRoutes(app: FastifyInstance) {
   const service = new ConversationsService();
+
+  // ── Iniciar conversa outbound ────────────────────────────────────────────────
+  // Cria (ou reutiliza) uma conversa e envia a primeira mensagem proativamente.
+  app.post(
+    "/conversations/start",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const body = initiateSchema.parse(request.body);
+      const conversation = await service.startConversation({
+        ...body,
+        authorId: auth.userId,
+      });
+      return reply.status(201).send(conversation);
+    }
+  );
+
+  // ── Listagem ─────────────────────────────────────────────────────────────────
 
   app.get(
     "/conversations",
@@ -65,6 +91,8 @@ export async function conversationsRoutes(app: FastifyInstance) {
     }
   );
 
+  // ── Envio de mensagem ────────────────────────────────────────────────────────
+
   app.post(
     "/conversations/:id/messages",
     { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
@@ -76,6 +104,8 @@ export async function conversationsRoutes(app: FastifyInstance) {
       return reply.status(201).send(message);
     }
   );
+
+  // ── Atribuição e status ──────────────────────────────────────────────────────
 
   app.patch(
     "/conversations/:id/assign",
