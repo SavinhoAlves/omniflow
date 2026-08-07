@@ -12,7 +12,7 @@ import { IncomingQueueClient } from "./incoming-queue.client";
 const createInstanceSchema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),
-  providerType: z.enum(["BAILEYS", "META_CLOUD_API", "EVOLUTION_API"]),
+  providerType: z.enum(["BAILEYS", "META_CLOUD_API", "EVOLUTION_API", "FACEBOOK_MESSENGER", "INSTAGRAM"]),
   defaultDepartmentId: z.string().uuid().optional(),
   credentials: z.record(z.string(), z.unknown()).optional(),
 });

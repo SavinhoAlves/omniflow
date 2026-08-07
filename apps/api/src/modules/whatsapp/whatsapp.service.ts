@@ -17,8 +17,7 @@ export class WhatsAppService {
   constructor() {
     const baileysQueueClient = new BaileysQueueClient();
     this.providerFactory = new WhatsAppProviderFactory({
-      getMetaCredentials: (instanceId) => this.getDecryptedCredentials(instanceId),
-      getEvolutionCredentials: (instanceId) => this.getDecryptedCredentials(instanceId),
+      getCredentials: (instanceId) => this.getDecryptedCredentials(instanceId),
       baileysQueue: baileysQueueClient,
     });
   }

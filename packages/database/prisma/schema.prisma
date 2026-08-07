@@ -29,6 +29,8 @@ enum WhatsAppProviderType {
   BAILEYS
   META_CLOUD_API
   EVOLUTION_API
+  FACEBOOK_MESSENGER
+  INSTAGRAM
 }
 
 enum InstanceConnectionStatus {

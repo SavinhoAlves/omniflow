@@ -1,0 +1,3 @@
+-- AlterEnum: add FACEBOOK_MESSENGER and INSTAGRAM to WhatsAppProviderType
+ALTER TYPE "WhatsAppProviderType" ADD VALUE 'FACEBOOK_MESSENGER';
+ALTER TYPE "WhatsAppProviderType" ADD VALUE 'INSTAGRAM';

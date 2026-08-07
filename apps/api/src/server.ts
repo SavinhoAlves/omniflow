@@ -15,6 +15,7 @@ import { workflowsRoutes } from "./modules/workflows/workflows.routes";
 import { conversationsRoutes } from "./modules/conversations/conversations.routes";
 import { contactsRoutes } from "./modules/contacts/contacts.routes";
 import { reportsRoutes } from "./modules/reports/reports.routes";
+import { messengerRoutes } from "./modules/messenger/messenger.routes";
 import { tenantMiddleware } from "./middlewares/tenant.middleware";
 
 export function buildServer() {
@@ -104,6 +105,7 @@ export function buildServer() {
   app.register(conversationsRoutes);
   app.register(contactsRoutes);
   app.register(reportsRoutes);
+  app.register(messengerRoutes);
 
   return app;
 }
