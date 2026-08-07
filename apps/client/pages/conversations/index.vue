@@ -4,28 +4,39 @@
          Painel esquerdo — lista de conversas
          ============================================================ -->
     <div class="w-80 shrink-0 flex flex-col border-r border-zinc-800 bg-zinc-900/50">
-      <!-- Busca -->
-      <div class="p-3 border-b border-zinc-800">
-        <div class="relative">
-          <Search :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-          <input
-            v-model="search"
-            type="search"
-            placeholder="Buscar conversa..."
-            class="w-full bg-zinc-800 text-sm text-zinc-200 placeholder-zinc-600 rounded-lg pl-8 pr-3 py-2 border border-zinc-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
-          />
+      <!-- Header + Busca -->
+      <div class="border-b border-zinc-800">
+        <div class="flex items-center justify-between px-4 pb-2.5 pt-4">
+          <h2 class="text-sm font-semibold text-white">Conversas</h2>
+          <span
+            v-if="openCount > 0"
+            class="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold leading-none text-white tabular-nums"
+          >
+            {{ openCount }}
+          </span>
+        </div>
+        <div class="px-3 pb-3">
+          <div class="relative">
+            <Search :size="14" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              v-model="search"
+              type="search"
+              placeholder="Buscar conversa..."
+              class="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2 pl-8 pr-3 text-sm text-zinc-200 placeholder-zinc-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+            />
+          </div>
         </div>
       </div>
 
       <!-- Abas de filtro -->
-      <div class="flex border-b border-zinc-800 px-2 pt-1">
+      <div class="flex gap-1 border-b border-zinc-800 px-3 py-2">
         <button
           v-for="tab in TABS"
           :key="tab.value"
-          class="flex-1 py-2 text-xs font-medium transition-colors rounded-t-lg"
+          class="flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors"
           :class="activeTab === tab.value
-            ? 'text-blue-400 border-b-2 border-blue-500'
-            : 'text-zinc-500 hover:text-zinc-300'"
+            ? 'bg-zinc-800 text-white'
+            : 'text-zinc-500 hover:text-zinc-400'"
           @click="activeTab = tab.value"
         >
           {{ tab.label }}
@@ -51,13 +62,14 @@
         <button
           v-for="conv in conversations"
           :key="conv.id"
-          class="w-full flex items-start gap-3 p-3 hover:bg-zinc-800/60 transition-colors border-b border-zinc-800/50 text-left"
+          class="relative w-full flex items-start gap-3 px-3 py-3 hover:bg-zinc-800/40 transition-colors border-b border-zinc-800/40 text-left"
           :class="[
-            activeConversationId === conv.id ? 'bg-zinc-800' : '',
-            conv.status === 'RESOLVED' && activeConversationId !== conv.id ? 'opacity-60' : '',
+            activeConversationId === conv.id ? 'bg-zinc-800/70' : '',
+            conv.status === 'RESOLVED' && activeConversationId !== conv.id ? 'opacity-50' : '',
           ]"
           @click="selectConversation(conv.id)"
         >
+          <span v-if="activeConversationId === conv.id" class="absolute inset-y-0 left-0 w-0.5 rounded-r bg-blue-500" />
           <!-- Avatar -->
           <div
             class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0"
@@ -128,7 +140,7 @@
         <div class="flex items-center gap-2 shrink-0">
           <button
             v-if="activeConversation.status === 'OPEN'"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition"
+            class="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="statusChanging"
             @click="changeStatus('RESOLVED')"
           >
@@ -137,7 +149,7 @@
           </button>
           <button
             v-else
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition"
+            class="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="statusChanging"
             @click="changeStatus('OPEN')"
           >
@@ -148,7 +160,7 @@
       </div>
 
       <!-- Área de mensagens -->
-      <div ref="messagesContainerRef" class="flex-1 overflow-y-auto p-4 space-y-1.5">
+      <div ref="messagesContainerRef" class="flex-1 overflow-y-auto p-5 space-y-2 bg-[#0d1117]">
         <template v-for="(msg, i) in messages" :key="msg.id">
           <!-- Separador de data -->
           <div
@@ -161,27 +173,27 @@
           </div>
 
           <!-- Mensagem de sistema -->
-          <div v-if="msg.type === 'SYSTEM'" class="flex justify-center">
-            <span class="text-[11px] text-zinc-500 bg-zinc-800/50 rounded-full px-3 py-0.5 italic">
+          <div v-if="msg.type === 'SYSTEM'" class="flex justify-center py-1">
+            <span class="rounded-full border border-zinc-800 bg-zinc-900/80 px-3 py-1 text-[11px] italic text-zinc-500">
               {{ msg.content }}
             </span>
           </div>
 
           <!-- Mensagem inbound (esquerda) -->
-          <div v-else-if="msg.direction === 'INBOUND'" class="flex items-end gap-2 max-w-[70%]">
-            <div class="bg-zinc-800 rounded-2xl rounded-bl-sm px-3.5 py-2 min-w-0">
-              <p class="text-sm text-zinc-100 whitespace-pre-wrap break-words">{{ msg.content }}</p>
-              <p class="text-[10px] text-zinc-500 mt-1 text-right">{{ formatMessageTime(msg.createdAt) }}</p>
+          <div v-else-if="msg.direction === 'INBOUND'" class="flex items-end gap-2 max-w-[72%]">
+            <div class="min-w-0 rounded-2xl rounded-bl-sm bg-[#1c2128] px-3.5 py-2.5 shadow-sm">
+              <p class="text-sm text-zinc-100 whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
+              <p class="mt-1 text-right text-[10px] text-zinc-500">{{ formatMessageTime(msg.createdAt) }}</p>
             </div>
           </div>
 
           <!-- Mensagem outbound (direita) -->
-          <div v-else class="flex items-end gap-2 max-w-[70%] ml-auto">
-            <div class="bg-blue-600 rounded-2xl rounded-br-sm px-3.5 py-2 min-w-0">
-              <p class="text-sm text-white whitespace-pre-wrap break-words">{{ msg.content }}</p>
-              <div class="flex items-center justify-end gap-1 mt-1">
+          <div v-else class="ml-auto flex items-end gap-2 max-w-[72%]">
+            <div class="min-w-0 rounded-2xl rounded-br-sm bg-blue-600 px-3.5 py-2.5 shadow-sm">
+              <p class="text-sm text-white whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
+              <div class="mt-1 flex items-center justify-end gap-1">
                 <p class="text-[10px] text-blue-200">{{ formatMessageTime(msg.createdAt) }}</p>
-                <CheckCheck :size="10" class="text-blue-200 shrink-0" />
+                <CheckCheck :size="10" class="shrink-0 text-blue-200" />
               </div>
             </div>
           </div>
@@ -192,35 +204,43 @@
       </div>
 
       <!-- Input -->
-      <div class="shrink-0 border-t border-zinc-800 bg-zinc-900/50 p-3">
-        <div class="flex items-end gap-2">
+      <div class="shrink-0 border-t border-zinc-800 bg-zinc-900 px-4 py-3">
+        <div v-if="activeConversation.status === 'RESOLVED'" class="flex items-center justify-center gap-2 py-2 text-xs text-zinc-500">
+          <CheckCircle :size="13" class="text-zinc-600" />
+          Conversa encerrada — <button class="text-blue-400 hover:text-blue-300 transition" @click="changeStatus('OPEN')">Reabrir para responder</button>
+        </div>
+        <div v-else class="flex items-end gap-2">
           <textarea
             v-model="inputText"
             rows="1"
-            placeholder="Digite uma mensagem... (Enter para enviar)"
-            class="flex-1 bg-zinc-800 text-sm text-zinc-100 placeholder-zinc-600 rounded-xl px-4 py-2.5 border border-zinc-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 resize-none min-h-[40px] max-h-32 overflow-y-auto"
-            :disabled="activeConversation.status !== 'OPEN'"
+            placeholder="Digite uma mensagem…"
+            class="flex-1 resize-none rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 min-h-[40px] max-h-32 overflow-y-auto"
             @keydown.enter.exact.prevent="sendMessage"
             @input="autoResize"
           />
           <button
-            class="h-10 w-10 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center shrink-0 transition"
-            :disabled="!inputText.trim() || sending || activeConversation.status !== 'OPEN'"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="!inputText.trim() || sending"
             @click="sendMessage"
           >
             <Send :size="16" class="text-white" />
           </button>
         </div>
-        <p v-if="activeConversation.status === 'RESOLVED'" class="text-xs text-zinc-600 mt-2 text-center">
-          Esta conversa está encerrada. Reabra para enviar mensagens.
+        <p v-if="activeConversation.status === 'OPEN'" class="mt-1.5 text-right text-[10px] text-zinc-700">
+          Enter para enviar · Shift+Enter para nova linha
         </p>
       </div>
     </div>
 
     <!-- Estado vazio -->
-    <div v-else class="flex-1 flex flex-col items-center justify-center text-zinc-700 gap-3">
-      <MessageSquare :size="52" class="opacity-20" />
-      <p class="text-sm font-medium">Selecione uma conversa para começar</p>
+    <div v-else class="flex-1 flex flex-col items-center justify-center gap-4 bg-[#0d1117] px-8 text-center">
+      <div class="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900">
+        <MessageSquare :size="26" class="text-zinc-600" />
+      </div>
+      <div class="space-y-1">
+        <p class="text-sm font-medium text-zinc-400">Nenhuma conversa selecionada</p>
+        <p class="text-xs text-zinc-600">Escolha uma conversa na lista ao lado para começar a atender</p>
+      </div>
     </div>
   </div>
 </template>
@@ -294,6 +314,10 @@ const TABS = [
   { label: "Minhas", value: "MINE" as const },
   { label: "Resolvidas", value: "RESOLVED" as const },
 ]
+
+// ── Computed ───────────────────────────────────────────────────────────────
+
+const openCount = computed(() => conversations.value.filter((c) => c.status === "OPEN").length)
 
 // ── Busca com debounce ──────────────────────────────────────────────────────
 

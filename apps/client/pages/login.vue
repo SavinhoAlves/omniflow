@@ -123,7 +123,7 @@
          telas pequenas ocupa 100% (fallback simples, não é o alvo
          principal do design por enquanto).
     ============================================================ -->
-    <div class="w-full lg:w-[42%] flex items-center justify-center px-6 py-12 sm:px-12">
+    <div class="w-full lg:w-[42%] flex items-center justify-center px-6 py-12 sm:px-12 bg-[radial-gradient(circle,#ffffff06_1px,transparent_1px)] [background-size:28px_28px]">
       <div class="w-full max-w-sm">
         <!-- Wordmark (visível só quando o painel de marca está escondido) -->
         <div class="flex lg:hidden items-center gap-2.5 mb-10 justify-center">
@@ -171,8 +171,8 @@
               />
             </div>
 
-            <p class="mt-1.5 text-xs text-zinc-600">
-              O identificador da sua empresa, sem espaços — ex: <span class="text-zinc-500">omniflow</span>
+            <p class="mt-1.5 text-xs text-zinc-500">
+              Identificador sem espaços — ex: <span class="text-zinc-400">empresa-demo</span>
             </p>
           </div>
 
@@ -257,7 +257,7 @@
           </button>
         </form>
 
-        <div class="mt-10 text-center text-xs text-zinc-600">
+        <div class="mt-10 border-t border-zinc-900 pt-6 text-center text-xs text-zinc-700">
           OmniFlow © {{ new Date().getFullYear() }}
         </div>
       </div>
