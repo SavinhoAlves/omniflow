@@ -180,16 +180,16 @@
           </div>
 
           <!-- Mensagem inbound (esquerda) -->
-          <div v-else-if="msg.direction === 'INBOUND'" class="flex items-end gap-2 max-w-[72%]">
-            <div class="min-w-0 rounded-2xl rounded-bl-sm bg-[#1c2128] px-3.5 py-2.5 shadow-sm">
+          <div v-else-if="msg.direction === 'INBOUND'" class="flex justify-start">
+            <div class="max-w-[72%] min-w-0 rounded-2xl rounded-bl-sm bg-[#1c2128] px-3.5 py-2.5 shadow-sm">
               <p class="text-sm text-zinc-100 whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
               <p class="mt-1 text-right text-[10px] text-zinc-500">{{ formatMessageTime(msg.createdAt) }}</p>
             </div>
           </div>
 
           <!-- Mensagem outbound (direita) -->
-          <div v-else class="ml-auto flex items-end gap-2 max-w-[72%]">
-            <div class="min-w-0 rounded-2xl rounded-br-sm bg-blue-600 px-3.5 py-2.5 shadow-sm">
+          <div v-else class="flex justify-end">
+            <div class="max-w-[72%] min-w-0 rounded-2xl rounded-br-sm bg-blue-600 px-3.5 py-2.5 shadow-sm">
               <p class="text-sm text-white whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
               <div class="mt-1 flex items-center justify-end gap-1">
                 <p class="text-[10px] text-blue-200">{{ formatMessageTime(msg.createdAt) }}</p>
