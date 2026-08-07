@@ -1,6 +1,9 @@
 <template>
   <div>
-    <div class="mb-5 flex justify-end">
+    <div class="mb-6 flex items-center justify-between">
+      <p class="text-sm text-zinc-500">
+        {{ !loading ? `${workflow.rules.length} regra${workflow.rules.length !== 1 ? 's' : ''} de direcionamento` : '' }}
+      </p>
       <label class="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5">
         <span class="text-sm text-zinc-400">{{ workflow.enabled ? "Bot ativo" : "Bot desativado" }}</span>
         <button

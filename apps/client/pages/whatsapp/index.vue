@@ -2,7 +2,7 @@
   <div>
     <div class="mb-6 flex items-center justify-between">
       <p class="text-sm text-zinc-500">
-        {{ instances.length > 0 ? `${instances.length} canal(is) configurado(s)` : "Nenhum canal configurado ainda" }}
+        {{ instances.length === 0 ? 'Nenhum canal configurado ainda' : `${instances.length} canal${instances.length !== 1 ? 'is' : ''} configurado${instances.length !== 1 ? 's' : ''}` }}
       </p>
       <button
         class="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"

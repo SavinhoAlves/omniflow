@@ -84,7 +84,7 @@
             </p>
           </div>
           <div class="flex-1">
-            <div class="h-2 bg-zinc-800 rounded-full overflow-hidden">
+            <div class="h-2.5 bg-zinc-800 rounded-full overflow-hidden">
               <div
                 class="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-700"
                 :style="{ width: `${resolutionRate}%` }"
@@ -110,7 +110,7 @@
 
       <template v-else-if="volume.length">
         <!-- bars -->
-        <div class="flex items-end gap-1" style="height: 160px">
+        <div class="flex items-end gap-1 pt-2" style="height: 160px">
           <div
             v-for="(day, i) in volume"
             :key="day.date"

@@ -1,6 +1,9 @@
 <template>
   <div>
-    <div class="mb-5 flex justify-end">
+    <div class="mb-6 flex items-center justify-between">
+      <p class="text-sm text-zinc-500">
+        {{ !loading && users.length > 0 ? `${users.length} atendente${users.length !== 1 ? 's' : ''}` : '' }}
+      </p>
       <button
         class="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 font-medium text-white transition hover:bg-blue-500"
         @click="openCreateModal"
