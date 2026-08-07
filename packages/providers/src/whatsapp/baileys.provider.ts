@@ -4,6 +4,9 @@ import {
   SendTextMessageInput,
   SendMediaMessageInput,
   SendMessageResult,
+  SendTemplateMessageInput,
+  UploadMediaInput,
+  UploadMediaResult,
 } from "../whatsapp-provider.interface";
 
 /**
@@ -74,6 +77,16 @@ export class BaileysProvider implements IWhatsAppProvider {
     input: SendMediaMessageInput
   ): Promise<SendMessageResult> {
     return this.queue.enqueue<SendMessageResult>(instanceId, "send_media", input);
+  }
+
+  // [Update 4] Upload delegado ao worker (Baileys usa streams, não HTTP)
+  async uploadMedia(instanceId: string, input: UploadMediaInput): Promise<UploadMediaResult> {
+    return this.queue.enqueue<UploadMediaResult>(instanceId, "upload_media", input);
+  }
+
+  // [Update 5] Templates não existem no protocolo não-oficial do Baileys
+  async sendTemplateMessage(_instanceId: string, _input: SendTemplateMessageInput): Promise<SendMessageResult> {
+    throw new Error("Templates HSM não são suportados pelo provider Baileys (protocolo não-oficial). Use META_CLOUD_API ou EVOLUTION_API.");
   }
 }
 

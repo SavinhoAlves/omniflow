@@ -58,6 +58,15 @@ enum MessageType {
   SYSTEM
 }
 
+// [Update 2] Status de entrega — populado via webhook Meta
+enum MessageDeliveryStatus {
+  ACCEPTED   // Meta aceitou o envio (imediato)
+  SENT       // Enviado aos servidores WhatsApp
+  DELIVERED  // Entregue ao dispositivo do destinatário
+  READ       // Lido pelo destinatário
+  FAILED     // Falha de entrega
+}
+
 model PlatformUser {
   id                    String                 @id @default(uuid())
   name                  String
@@ -258,10 +267,13 @@ model Message {
   mediaUrl          String?          @map("media_url")
   authorId          String?          @map("author_id")
   author            User?            @relation("SentMessages", fields: [authorId], references: [id], onDelete: SetNull)
-  providerMessageId String?          @map("provider_message_id")
-  createdAt         DateTime         @default(now()) @map("created_at")
+  providerMessageId String?               @map("provider_message_id")
+  deliveryStatus    MessageDeliveryStatus? @map("delivery_status")
+  deliveryErrorCode Int?                  @map("delivery_error_code")
+  createdAt         DateTime              @default(now()) @map("created_at")
 
   @@index([conversationId])
+  @@index([providerMessageId])
   @@map("messages")
 }
 

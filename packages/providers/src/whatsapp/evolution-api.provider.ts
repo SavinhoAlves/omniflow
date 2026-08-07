@@ -4,6 +4,9 @@ import {
   SendTextMessageInput,
   SendMediaMessageInput,
   SendMessageResult,
+  SendTemplateMessageInput,
+  UploadMediaInput,
+  UploadMediaResult,
 } from "../whatsapp-provider.interface";
 
 interface EvolutionCredentials {
@@ -83,6 +86,9 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
     instanceId: string,
     input: SendMediaMessageInput
   ): Promise<SendMessageResult> {
+    if (!input.mediaUrl && !input.mediaId) {
+      throw new Error("sendMediaMessage requer mediaUrl ou mediaId");
+    }
     const creds = await this.getCredentials(instanceId);
     const res = await this.request<EvolutionSendMessageResponse>(
       creds,
@@ -91,11 +97,37 @@ export class EvolutionApiProvider implements IWhatsAppProvider {
       {
         number: input.to,
         mediatype: input.mediaType,
-        media: input.mediaUrl,
+        media: input.mediaUrl ?? input.mediaId,
         caption: input.caption,
+        fileName: input.filename,
       }
     );
     return { providerMessageId: res.key.id, sentAt: new Date() };
+  }
+
+  // [Update 5] Templates via Evolution API (suporta HSM para números Meta vinculados)
+  async sendTemplateMessage(
+    instanceId: string,
+    input: SendTemplateMessageInput
+  ): Promise<SendMessageResult> {
+    const creds = await this.getCredentials(instanceId);
+    const res = await this.request<EvolutionSendMessageResponse>(
+      creds,
+      "POST",
+      `/message/sendTemplate/${creds.instanceName}`,
+      {
+        number: input.to,
+        name: input.templateName,
+        language: input.languageCode,
+        components: input.components ?? [],
+      }
+    );
+    return { providerMessageId: res.key.id, sentAt: new Date() };
+  }
+
+  // [Update 4] Upload não suportado pela Evolution API (usa URL direta)
+  async uploadMedia(_instanceId: string, _input: UploadMediaInput): Promise<UploadMediaResult> {
+    throw new Error("uploadMedia não é suportado pela Evolution API. Forneça mediaUrl diretamente.");
   }
 
   private mapStatus(evolutionState?: string): ConnectionState["status"] {

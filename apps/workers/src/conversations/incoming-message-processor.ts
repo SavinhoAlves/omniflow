@@ -7,6 +7,9 @@ interface IncomingMessageJob {
   fromNumber: string;
   contactName?: string;
   text?: string;
+  // [Update 4] campos de mídia — presentes quando a mensagem não é texto
+  mediaUrl?: string;
+  mediaType?: "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts";
   providerMessageId?: string;
   receivedAt: string | Date;
 }
@@ -24,7 +27,7 @@ export function startIncomingMessageProcessor() {
   const worker = new Worker<IncomingMessageJob>(
     QUEUE_NAMES.INCOMING_MESSAGES,
     async (job: Job<IncomingMessageJob>) => {
-      const { instanceId, fromNumber, contactName, text, providerMessageId } = job.data;
+      const { instanceId, fromNumber, contactName, text, mediaUrl, mediaType, providerMessageId } = job.data;
 
       if (!fromNumber) {
         console.warn(`[incoming-processor] Job ${job.id}: fromNumber ausente, ignorando.`);
@@ -73,13 +76,21 @@ export function startIncomingMessageProcessor() {
           });
         }
 
-        // 4. Persiste a mensagem
+        // 4. Persiste a mensagem (texto ou mídia)
+        const msgType = text ? "TEXT"
+          : mediaType === "image" ? "IMAGE"
+          : mediaType === "video" ? "VIDEO"
+          : mediaType === "audio" ? "AUDIO"
+          : mediaType === "document" ? "DOCUMENT"
+          : "SYSTEM";
+
         await prisma.message.create({
           data: {
             conversationId: conversation.id,
             direction: "INBOUND",
-            type: text ? "TEXT" : "SYSTEM",
+            type: msgType as any,
             content: text,
+            mediaUrl: mediaUrl ?? undefined,
             providerMessageId,
           },
         });

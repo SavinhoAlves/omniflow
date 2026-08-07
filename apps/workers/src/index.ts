@@ -7,15 +7,17 @@ try { process.loadEnvFile(); } catch {}
 async function bootstrap() {
   const { startBaileysWorker } = await import("./whatsapp/baileys-worker");
   const { startIncomingMessageProcessor } = await import("./conversations/incoming-message-processor");
+  const { startMessageStatusProcessor } = await import("./conversations/message-status-processor");
 
   const baileysWorker = startBaileysWorker();
   const incomingProcessor = startIncomingMessageProcessor();
+  const statusProcessor = startMessageStatusProcessor(); // [Update 2]
 
-  console.log("Workers iniciados: Baileys + IncomingMessageProcessor");
+  console.log("Workers iniciados: Baileys + IncomingMessageProcessor + MessageStatusProcessor");
 
   const shutdown = async () => {
     console.log("Encerrando workers...");
-    await Promise.all([baileysWorker.close(), incomingProcessor.close()]);
+    await Promise.all([baileysWorker.close(), incomingProcessor.close(), statusProcessor.close()]);
     process.exit(0);
   };
 
