@@ -391,19 +391,26 @@ function showDateSeparator(msg: Message, prev?: Message) {
 
 // ── Carregamento da lista ───────────────────────────────────────────────────
 
+let currentLoadId = 0
+
 async function loadConversations() {
+  const loadId = ++currentLoadId
   try {
     const params = new URLSearchParams()
     if (activeTab.value === "MINE") params.set("mine", "true")
-    if (activeTab.value === "RESOLVED") params.set("status", "RESOLVED")
-    else if (activeTab.value !== "RESOLVED") params.set("status", "OPEN")
+    params.set("status", activeTab.value === "RESOLVED" ? "RESOLVED" : "OPEN")
     if (debouncedSearch.value) params.set("search", debouncedSearch.value)
 
-    conversations.value = await api<ConvSummary[]>(`/conversations?${params}`)
-  } catch (e) {
+    const result = await api<ConvSummary[]>(`/conversations?${params}`)
+    if (loadId === currentLoadId) {
+      conversations.value = result
+    }
+  } catch {
     // Ignora erros de polling silenciosamente
   } finally {
-    listLoading.value = false
+    if (loadId === currentLoadId) {
+      listLoading.value = false
+    }
   }
 }
 
@@ -511,7 +518,13 @@ function autoResize(e: Event) {
 
 // ── Watchers e lifecycle ────────────────────────────────────────────────────
 
-watch([activeTab, debouncedSearch], () => {
+watch(activeTab, () => {
+  conversations.value = []
+  listLoading.value = true
+  loadConversations()
+})
+
+watch(debouncedSearch, () => {
   listLoading.value = true
   loadConversations()
 })
