@@ -76,6 +76,7 @@ const PAGE_MAP: Record<string, { title: string; subtitle: string }> = {
   "/departments": { title: "Departamentos",          subtitle: "Organização da equipe em setores" },
   "/users":       { title: "Atendentes",             subtitle: "Gestão da equipe de atendimento" },
   "/workflows":   { title: "Fluxo de atendimento",  subtitle: "Automação e direcionamento de conversas" },
+  "/reports":     { title: "Relatórios",             subtitle: "Métricas e desempenho do atendimento" },
   "/settings":    { title: "Configurações",          subtitle: "Preferências e dados da empresa" },
 }
 

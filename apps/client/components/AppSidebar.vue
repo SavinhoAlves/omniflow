@@ -35,18 +35,19 @@
 </template>
 
 <script setup lang="ts">
-import { LayoutDashboard, MessageSquare, MessageCircle, Network, Users, Workflow, Settings } from "lucide-vue-next"
+import { LayoutDashboard, MessageSquare, MessageCircle, Network, Users, Workflow, BarChart2, Settings } from "lucide-vue-next"
 
 const route = useRoute()
 
 const menu = [
-  { name: "Dashboard",             path: "/dashboard",      icon: LayoutDashboard },
-  { name: "Conversas",             path: "/conversations",  icon: MessageSquare },
-  { name: "Canais",                path: "/whatsapp",       icon: MessageCircle },
-  { name: "Departamentos",         path: "/departments",    icon: Network },
-  { name: "Atendentes",            path: "/users",          icon: Users },
-  { name: "Fluxos de atendimento", path: "/workflows",      icon: Workflow },
-  { name: "Configurações",         path: "/settings",       icon: Settings },
+  { name: "Dashboard",             path: "/dashboard",     icon: LayoutDashboard },
+  { name: "Conversas",             path: "/conversations", icon: MessageSquare },
+  { name: "Canais",                path: "/whatsapp",      icon: MessageCircle },
+  { name: "Departamentos",         path: "/departments",   icon: Network },
+  { name: "Atendentes",            path: "/users",         icon: Users },
+  { name: "Fluxos de atendimento", path: "/workflows",     icon: Workflow },
+  { name: "Relatórios",       path: "/reports",       icon: BarChart2 },
+  { name: "Configurações", path: "/settings",   icon: Settings },
 ]
 
 function isActive(path: string) {
