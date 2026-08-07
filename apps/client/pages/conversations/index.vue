@@ -1,112 +1,121 @@
 <template>
   <div class="flex h-full overflow-hidden">
     <!-- ============================================================
-         Painel esquerdo — lista de conversas
+         Sidebar — lista
     ============================================================ -->
-    <div class="w-72 shrink-0 flex flex-col border-r border-zinc-800 bg-zinc-900/50">
-      <!-- Header + Busca -->
-      <div class="border-b border-zinc-800">
+    <div class="w-72 shrink-0 flex flex-col border-r border-zinc-800/80 bg-zinc-900">
+      <!-- Header -->
+      <div class="border-b border-zinc-800/80">
         <div class="flex items-center justify-between px-4 pb-2.5 pt-4">
           <h2 class="text-sm font-semibold text-white">Conversas</h2>
           <span
             v-if="openCount > 0"
-            class="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold leading-none text-white tabular-nums"
+            class="min-w-[18px] rounded-full bg-blue-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white tabular-nums"
           >
             {{ openCount }}
           </span>
         </div>
         <div class="px-3 pb-3">
           <div class="relative">
-            <Search :size="14" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <Search :size="13" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
             <input
               v-model="search"
               type="search"
-              placeholder="Buscar conversa..."
-              class="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2 pl-8 pr-3 text-sm text-zinc-200 placeholder-zinc-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+              placeholder="Buscar..."
+              class="w-full rounded-lg border border-zinc-800 bg-zinc-800/60 py-2 pl-8 pr-3 text-sm text-zinc-200 placeholder-zinc-600 transition focus:border-blue-500 focus:outline-none focus:bg-zinc-800"
             />
           </div>
         </div>
       </div>
 
-      <!-- Abas -->
-      <div class="flex gap-1 border-b border-zinc-800 px-3 py-2">
+      <!-- Tabs -->
+      <div class="flex gap-1 border-b border-zinc-800/80 px-3 py-2">
         <button
           v-for="tab in TABS"
           :key="tab.value"
           class="flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors"
-          :class="activeTab === tab.value ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-400'"
+          :class="activeTab === tab.value
+            ? 'bg-zinc-800 text-white'
+            : 'text-zinc-600 hover:text-zinc-400'"
           @click="activeTab = tab.value"
         >
           {{ tab.label }}
         </button>
       </div>
 
-      <!-- Lista -->
+      <!-- List -->
       <div class="flex-1 overflow-y-auto">
-        <div v-if="listLoading && conversations.length === 0" class="space-y-3 p-4">
-          <div v-for="i in 5" :key="i" class="flex animate-pulse gap-3">
+        <div v-if="listLoading && conversations.length === 0" class="space-y-px p-2">
+          <div v-for="i in 5" :key="i" class="flex animate-pulse gap-3 rounded-xl p-3">
             <div class="h-10 w-10 shrink-0 rounded-full bg-zinc-800" />
-            <div class="flex-1 space-y-1.5">
-              <div class="h-3 w-3/4 rounded bg-zinc-800" />
-              <div class="h-2.5 w-1/2 rounded bg-zinc-800" />
+            <div class="flex-1 space-y-2 pt-1">
+              <div class="h-3 w-3/4 rounded-md bg-zinc-800" />
+              <div class="h-2.5 w-1/2 rounded-md bg-zinc-800" />
             </div>
           </div>
         </div>
 
-        <p v-else-if="conversations.length === 0" class="mt-12 text-center text-sm text-zinc-600">
-          Nenhuma conversa encontrada.
-        </p>
+        <div v-else-if="conversations.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
+          <p class="text-sm text-zinc-600">Nenhuma conversa</p>
+        </div>
 
-        <button
-          v-for="conv in conversations"
-          :key="conv.id"
-          class="relative w-full flex items-start gap-3 px-3 py-3 text-left transition-colors border-b border-zinc-800/40 hover:bg-zinc-800/40"
-          :class="[
-            activeConversationId === conv.id ? 'bg-zinc-800/70' : '',
-            conv.status === 'RESOLVED' && activeConversationId !== conv.id ? 'opacity-50' : '',
-          ]"
-          @click="selectConversation(conv.id)"
-        >
-          <span v-if="activeConversationId === conv.id" class="absolute inset-y-0 left-0 w-0.5 rounded-r bg-blue-500" />
-          <div
-            class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold"
-            :style="{ background: avatarGradient(conv.contact.name ?? conv.contact.phoneNumber) }"
+        <div v-else class="p-2 space-y-px">
+          <button
+            v-for="conv in conversations"
+            :key="conv.id"
+            class="relative w-full flex items-start gap-3 rounded-xl px-3 py-3 text-left transition-all"
+            :class="[
+              activeConversationId === conv.id
+                ? 'bg-blue-500/10 ring-1 ring-inset ring-blue-500/20'
+                : 'hover:bg-zinc-800/50',
+              conv.status === 'RESOLVED' && activeConversationId !== conv.id ? 'opacity-40' : '',
+            ]"
+            @click="selectConversation(conv.id)"
           >
-            {{ initials(conv.contact.name ?? conv.contact.phoneNumber) }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-1">
-              <p
-                class="text-sm font-medium truncate"
-                :class="conv.status === 'RESOLVED' ? 'text-zinc-500' : 'text-zinc-100'"
-              >
-                {{ conv.contact.name || conv.contact.phoneNumber }}
-              </p>
-              <span class="shrink-0 text-[10px] text-zinc-600">{{ formatTime(conv.lastMessageAt) }}</span>
-            </div>
-            <div class="mt-0.5 flex items-center gap-1">
-              <CheckCheck
-                v-if="conv.messages?.[0]?.direction === 'OUTBOUND' && conv.status === 'OPEN'"
-                :size="12"
-                class="shrink-0 text-blue-400"
+            <div
+              class="relative h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold"
+              :style="{ background: avatarGradient(conv.contact.name ?? conv.contact.phoneNumber) }"
+            >
+              {{ initials(conv.contact.name ?? conv.contact.phoneNumber) }}
+              <span
+                v-if="conv.status === 'OPEN'"
+                class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-emerald-400"
               />
-              <p class="truncate text-xs text-zinc-500">{{ conv.messages?.[0]?.content || 'Nova conversa' }}</p>
             </div>
-          </div>
-          <span v-if="conv.status === 'OPEN'" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
-          <CheckCircle v-else :size="13" class="mt-0.5 shrink-0 text-zinc-600" />
-        </button>
+            <div class="flex-1 min-w-0 pt-0.5">
+              <div class="flex items-baseline justify-between gap-1">
+                <p
+                  class="text-sm font-semibold truncate leading-none"
+                  :class="activeConversationId === conv.id ? 'text-white' : 'text-zinc-200'"
+                >
+                  {{ conv.contact.name || conv.contact.phoneNumber }}
+                </p>
+                <span class="shrink-0 text-[10px] text-zinc-600">{{ formatTime(conv.lastMessageAt) }}</span>
+              </div>
+              <div class="mt-1 flex items-center gap-1">
+                <CheckCheck
+                  v-if="conv.messages?.[0]?.direction === 'OUTBOUND' && conv.status === 'OPEN'"
+                  :size="11"
+                  class="shrink-0 text-blue-400"
+                />
+                <p class="truncate text-[11px] leading-none text-zinc-500">
+                  {{ conv.messages?.[0]?.content || 'Nova conversa' }}
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- ============================================================
-         Painel central — chat
+         Chat
     ============================================================ -->
     <div v-if="activeConversation" class="flex flex-1 flex-col min-w-0">
       <!-- Header -->
-      <div class="h-14 shrink-0 flex items-center gap-3 px-4 border-b border-zinc-800 bg-zinc-900/60">
+      <div class="h-[58px] shrink-0 flex items-center gap-3 px-5 border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-sm">
         <div
-          class="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold"
+          class="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ring-1 ring-white/10"
           :style="{ background: avatarGradient(activeConversation.contact.name ?? activeConversation.contact.phoneNumber) }"
         >
           {{ initials(activeConversation.contact.name ?? activeConversation.contact.phoneNumber) }}
@@ -114,84 +123,78 @@
 
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
-            <p class="text-sm font-semibold text-white truncate leading-tight">
+            <p class="text-sm font-semibold text-white truncate">
               {{ activeConversation.contact.name || activeConversation.contact.phoneNumber }}
             </p>
             <span
-              class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
-              :class="activeConversation.status === 'OPEN'
-                ? 'bg-emerald-500/10 text-emerald-400'
-                : 'bg-zinc-700/50 text-zinc-500'"
-            >
-              {{ activeConversation.status === 'OPEN' ? 'Aberta' : 'Resolvida' }}
-            </span>
+              class="shrink-0 h-1.5 w-1.5 rounded-full"
+              :class="activeConversation.status === 'OPEN' ? 'bg-emerald-400' : 'bg-zinc-600'"
+            />
           </div>
-          <p class="text-xs text-zinc-500 truncate leading-tight">
+          <p class="text-[11px] text-zinc-500 truncate leading-none mt-0.5">
             {{ activeConversation.contact.phoneNumber }}
-            <span v-if="activeConversation.assignedTo"> · {{ activeConversation.assignedTo.name }}</span>
-            <span v-if="activeConversation.department"> · {{ activeConversation.department.name }}</span>
+            <span v-if="activeConversation.assignedTo" class="text-zinc-600"> · {{ activeConversation.assignedTo.name }}</span>
           </p>
         </div>
 
         <div class="flex items-center gap-1.5 shrink-0">
           <button
             v-if="activeConversation.status === 'OPEN'"
-            class="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20 disabled:opacity-50"
+            class="flex items-center gap-1.5 rounded-lg border border-emerald-600/30 bg-emerald-600/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-600/20 disabled:opacity-50"
             :disabled="statusChanging"
             @click="changeStatus('RESOLVED')"
           >
-            <CheckCircle :size="13" />
+            <CheckCircle :size="12" />
             Resolver
           </button>
           <button
             v-else
-            class="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700 disabled:opacity-50"
+            class="flex items-center gap-1.5 rounded-lg border border-zinc-700/60 bg-zinc-800/60 px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:text-zinc-300 disabled:opacity-50"
             :disabled="statusChanging"
             @click="changeStatus('OPEN')"
           >
-            <RotateCcw :size="13" />
+            <RotateCcw :size="12" />
             Reabrir
           </button>
-
           <button
-            class="rounded-lg p-2 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
-            :class="showInfoPanel ? 'bg-zinc-800 text-zinc-300' : ''"
-            :title="showInfoPanel ? 'Fechar painel' : 'Abrir painel de detalhes'"
+            class="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-800 hover:text-zinc-400"
+            :class="showInfoPanel ? 'bg-zinc-800 text-zinc-400' : ''"
             @click="showInfoPanel = !showInfoPanel"
           >
-            <PanelRight :size="16" />
+            <PanelRight :size="15" />
           </button>
         </div>
       </div>
 
-      <!-- Mensagens -->
-      <div ref="messagesContainerRef" class="flex-1 overflow-y-auto p-5 space-y-2 bg-[#0d1117]">
+      <!-- Messages -->
+      <div ref="messagesContainerRef" class="flex-1 overflow-y-auto px-6 py-5 space-y-1 bg-[#0d1117]">
         <template v-for="(msg, i) in messages" :key="msg.id">
-          <div v-if="showDateSeparator(msg, messages[i - 1])" class="my-1 flex items-center gap-2 py-2">
-            <div class="h-px flex-1 bg-zinc-800" />
-            <span class="px-2 text-[10px] font-medium text-zinc-600">{{ formatDate(msg.createdAt) }}</span>
-            <div class="h-px flex-1 bg-zinc-800" />
+          <div v-if="showDateSeparator(msg, messages[i - 1])" class="flex items-center gap-3 py-3 my-1">
+            <div class="h-px flex-1 bg-zinc-800/60" />
+            <span class="text-[10px] font-medium text-zinc-700 tracking-wide">{{ formatDate(msg.createdAt) }}</span>
+            <div class="h-px flex-1 bg-zinc-800/60" />
           </div>
 
-          <div v-if="msg.type === 'SYSTEM'" class="flex justify-center py-1">
-            <span class="rounded-full border border-zinc-800 bg-zinc-900/80 px-3 py-1 text-[11px] italic text-zinc-500">
-              {{ msg.content }}
-            </span>
+          <!-- System event — very subtle, no chrome -->
+          <div v-if="msg.type === 'SYSTEM'" class="flex justify-center py-0.5">
+            <span class="text-[10px] text-zinc-700">{{ msg.content }}</span>
           </div>
 
+          <!-- Inbound -->
           <div v-else-if="msg.direction === 'INBOUND'" class="flex justify-start">
-            <div class="max-w-[72%] min-w-0 rounded-2xl rounded-bl-sm bg-[#1c2128] px-3.5 py-2.5 shadow-sm">
+            <div class="max-w-[68%] min-w-0 rounded-2xl rounded-bl-md bg-zinc-800/80 px-4 py-2.5">
               <p class="text-sm text-zinc-100 whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
-              <p class="mt-1 text-right text-[10px] text-zinc-500">{{ formatMessageTime(msg.createdAt) }}</p>
+              <p class="mt-1 text-right text-[10px] text-zinc-600">{{ formatMessageTime(msg.createdAt) }}</p>
             </div>
           </div>
 
+          <!-- Outbound -->
           <div v-else class="flex justify-end">
-            <div class="max-w-[72%] min-w-0 rounded-2xl rounded-br-sm bg-blue-600 px-3.5 py-2.5 shadow-sm">
+            <div class="max-w-[68%] min-w-0 rounded-2xl rounded-br-md bg-blue-600 px-4 py-2.5">
               <p class="text-sm text-white whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
               <div class="mt-1 flex items-center justify-end gap-1">
-                <p class="text-[10px] text-blue-200">{{ formatMessageTime(msg.createdAt) }}</p>
-                <CheckCheck :size="10" class="shrink-0 text-blue-200" />
+                <p class="text-[10px] text-blue-300">{{ formatMessageTime(msg.createdAt) }}</p>
+                <CheckCheck :size="10" class="shrink-0 text-blue-300" />
               </div>
             </div>
           </div>
@@ -200,114 +203,157 @@
       </div>
 
       <!-- Input -->
-      <div class="shrink-0 border-t border-zinc-800 bg-zinc-900 px-4 py-3">
-        <div v-if="activeConversation.status === 'RESOLVED'" class="flex items-center justify-center gap-2 py-2 text-xs text-zinc-500">
-          <CheckCircle :size="13" class="text-zinc-600" />
+      <div class="shrink-0 border-t border-zinc-800/80 bg-zinc-900 px-5 py-3.5">
+        <div v-if="activeConversation.status === 'RESOLVED'" class="flex items-center justify-center gap-2 py-1.5 text-xs text-zinc-600">
           Conversa encerrada —
-          <button class="text-blue-400 transition hover:text-blue-300" @click="changeStatus('OPEN')">
-            Reabrir para responder
-          </button>
+          <button class="text-blue-500 transition hover:text-blue-400" @click="changeStatus('OPEN')">Reabrir</button>
         </div>
-        <div v-else class="flex items-end gap-2">
+        <div v-else class="flex items-end gap-3">
           <textarea
             v-model="inputText"
             rows="1"
-            placeholder="Digite uma mensagem…"
-            class="flex-1 min-h-[40px] max-h-32 resize-none overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+            placeholder="Mensagem…"
+            class="flex-1 min-h-[38px] max-h-32 resize-none overflow-y-auto rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition focus:border-blue-500/50 focus:outline-none focus:bg-zinc-800"
             @keydown.enter.exact.prevent="sendMessage"
             @input="autoResize"
           />
           <button
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+            class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-blue-600 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!inputText.trim() || sending"
             @click="sendMessage"
           >
-            <Send :size="16" class="text-white" />
+            <Send :size="15" class="text-white" />
           </button>
         </div>
-        <p v-if="activeConversation.status === 'OPEN'" class="mt-1.5 text-right text-[10px] text-zinc-700">
-          Enter para enviar · Shift+Enter para nova linha
-        </p>
       </div>
     </div>
 
-    <!-- Estado vazio -->
-    <div v-else class="flex flex-1 flex-col items-center justify-center gap-4 bg-[#0d1117] px-8 text-center">
-      <div class="flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900">
-        <MessageSquare :size="26" class="text-zinc-600" />
+    <!-- Empty state -->
+    <div v-else class="flex flex-1 flex-col items-center justify-center gap-4 bg-[#0d1117]">
+      <div class="flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-800/80 bg-zinc-900">
+        <MessageSquare :size="24" class="text-zinc-700" />
       </div>
-      <div class="space-y-1">
-        <p class="text-sm font-medium text-zinc-400">Nenhuma conversa selecionada</p>
-        <p class="text-xs text-zinc-600">Escolha uma conversa na lista ao lado para começar a atender</p>
+      <div class="space-y-1 text-center">
+        <p class="text-sm font-medium text-zinc-500">Nenhuma conversa selecionada</p>
+        <p class="text-xs text-zinc-700">Selecione uma conversa para começar</p>
       </div>
     </div>
 
     <!-- ============================================================
-         Painel direito — detalhes e ações
+         Info panel
     ============================================================ -->
     <div
       v-if="activeConversation && showInfoPanel"
-      class="w-64 shrink-0 flex flex-col border-l border-zinc-800 bg-zinc-900/50 overflow-y-auto"
+      class="w-[232px] shrink-0 flex flex-col border-l border-zinc-800/80 bg-zinc-950"
     >
-      <!-- Contato -->
-      <div class="p-4 border-b border-zinc-800">
-        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Contato</p>
-        <div class="flex items-center gap-3">
+      <!-- Contact card — centered, prominent -->
+      <div class="flex flex-col items-center px-5 pb-5 pt-7 text-center">
+        <div class="relative mb-3.5">
           <div
-            class="h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold"
+            class="flex h-[52px] w-[52px] items-center justify-center rounded-full text-base font-bold ring-[3px] ring-zinc-800/80"
             :style="{ background: avatarGradient(activeConversation.contact.name ?? activeConversation.contact.phoneNumber) }"
           >
             {{ initials(activeConversation.contact.name ?? activeConversation.contact.phoneNumber) }}
           </div>
-          <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-white">
-              {{ activeConversation.contact.name || activeConversation.contact.phoneNumber }}
-            </p>
-            <p class="text-xs text-zinc-500">{{ activeConversation.contact.phoneNumber }}</p>
-          </div>
+          <span
+            class="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-zinc-950"
+            :class="activeConversation.status === 'OPEN' ? 'bg-emerald-400' : 'bg-zinc-600'"
+          />
         </div>
+        <p class="text-sm font-semibold text-white leading-snug">
+          {{ activeConversation.contact.name || activeConversation.contact.phoneNumber }}
+        </p>
+        <p class="mt-0.5 text-[11px] text-zinc-600">
+          {{ activeConversation.contact.phoneNumber }}
+        </p>
+        <span
+          class="mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-medium"
+          :class="activeConversation.status === 'OPEN'
+            ? 'border-emerald-600/20 bg-emerald-500/10 text-emerald-400'
+            : 'border-zinc-700/60 bg-zinc-800/40 text-zinc-500'"
+        >
+          {{ activeConversation.status === 'OPEN' ? 'Em atendimento' : 'Resolvida' }}
+        </span>
       </div>
 
-      <!-- Atribuição -->
-      <div class="p-4 border-b border-zinc-800 space-y-3">
-        <p class="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Atribuição</p>
-        <div>
-          <p class="mb-0.5 text-[10px] text-zinc-600">Atendente</p>
-          <p class="text-sm text-zinc-300">{{ activeConversation.assignedTo?.name || '—' }}</p>
+      <div class="mx-4 h-px bg-zinc-800/60" />
+
+      <!-- Assignment -->
+      <div class="px-4 py-4">
+        <div class="mb-3 flex items-center justify-between">
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Responsável</span>
+          <button
+            class="text-[10px] font-medium text-zinc-700 transition hover:text-blue-400"
+            @click="openTransfer"
+          >
+            Alterar
+          </button>
         </div>
-        <div>
-          <p class="mb-0.5 text-[10px] text-zinc-600">Departamento</p>
-          <p class="text-sm text-zinc-300">{{ activeConversation.department?.name || '—' }}</p>
+
+        <!-- Agent -->
+        <div class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-zinc-900">
+          <div
+            v-if="activeConversation.assignedTo"
+            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300"
+          >
+            {{ activeConversation.assignedTo.name[0].toUpperCase() }}
+          </div>
+          <div v-else class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-800">
+            <User :size="11" class="text-zinc-600" />
+          </div>
+          <div class="min-w-0">
+            <p class="truncate text-[11px] font-medium text-zinc-300">
+              {{ activeConversation.assignedTo?.name || 'Não atribuído' }}
+            </p>
+            <p class="text-[9px] text-zinc-700">Atendente</p>
+          </div>
         </div>
+
+        <!-- Department -->
+        <div class="mt-1 flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-zinc-900">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-800/80">
+            <Layers :size="11" class="text-zinc-600" />
+          </div>
+          <div class="min-w-0">
+            <p class="truncate text-[11px] font-medium text-zinc-300">
+              {{ activeConversation.department?.name || 'Sem departamento' }}
+            </p>
+            <p class="text-[9px] text-zinc-700">Departamento</p>
+          </div>
+        </div>
+
         <button
-          class="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700"
+          class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-800/80 bg-zinc-900/60 py-2 text-[11px] font-medium text-zinc-500 transition hover:border-zinc-700 hover:text-zinc-300"
           @click="openTransfer"
         >
-          <ArrowRightLeft :size="13" />
+          <ArrowRightLeft :size="11" />
           Transferir conversa
         </button>
       </div>
 
-      <!-- Canal -->
-      <div class="p-4 border-b border-zinc-800">
-        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Canal</p>
-        <div class="flex items-center gap-2.5">
+      <div class="mx-4 h-px bg-zinc-800/60" />
+
+      <!-- Channel -->
+      <div class="px-4 py-4">
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Canal</span>
+        <div class="mt-2.5 flex items-center gap-2.5">
           <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
             <MessageSquare :size="13" class="text-emerald-400" />
           </div>
           <div class="min-w-0">
-            <p class="truncate text-sm text-zinc-300">{{ activeConversation.instance?.name || 'WhatsApp' }}</p>
-            <p class="text-[10px] text-zinc-600">WhatsApp</p>
+            <p class="truncate text-[11px] font-medium text-zinc-300">{{ activeConversation.instance?.name || 'WhatsApp' }}</p>
+            <p class="text-[9px] text-zinc-700">WhatsApp</p>
           </div>
         </div>
       </div>
 
-      <!-- Ações -->
-      <div class="p-4 space-y-2">
-        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Ações</p>
+      <div class="flex-1" />
+
+      <!-- Actions — bottom -->
+      <div class="border-t border-zinc-800/80 p-4">
         <button
           v-if="activeConversation.status === 'OPEN'"
-          class="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20 disabled:opacity-50"
+          class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
           :disabled="statusChanging"
           @click="changeStatus('RESOLVED')"
         >
@@ -316,7 +362,7 @@
         </button>
         <button
           v-else
-          class="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700 disabled:opacity-50"
+          class="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700/60 bg-zinc-800/60 py-2.5 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-800 disabled:opacity-50"
           :disabled="statusChanging"
           @click="changeStatus('OPEN')"
         >
@@ -326,55 +372,55 @@
       </div>
     </div>
 
-    <!-- Modal: transferir -->
+    <!-- Modal: transfer -->
     <Teleport to="body">
       <div
         v-if="showTransferModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
         @click.self="showTransferModal = false"
       >
-        <div class="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-          <div class="mb-5 flex items-center justify-between">
+        <div class="w-full max-w-sm rounded-2xl border border-zinc-800/80 bg-zinc-900 p-6 shadow-2xl">
+          <div class="mb-5 flex items-start justify-between">
             <div>
-              <h2 class="text-lg font-semibold text-white">Transferir conversa</h2>
+              <h2 class="text-base font-semibold text-white">Transferir conversa</h2>
               <p class="mt-0.5 text-xs text-zinc-500">Altere o atendente ou o departamento responsável.</p>
             </div>
-            <button class="text-zinc-500 hover:text-zinc-300" @click="showTransferModal = false">
-              <X :size="20" />
+            <button class="mt-0.5 text-zinc-600 transition hover:text-zinc-300" @click="showTransferModal = false">
+              <X :size="18" />
             </button>
           </div>
 
           <div class="space-y-4">
             <div>
-              <label class="text-sm text-zinc-400">Atendente</label>
+              <label class="text-xs font-medium text-zinc-400">Atendente</label>
               <select
                 v-model="transferForm.assignedToId"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700 bg-neutral-900/80 px-4 py-2.5 text-white outline-none transition focus:border-blue-500"
+                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
               >
                 <option value="">Sem atribuição</option>
                 <option v-for="user in transferUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
               </select>
             </div>
             <div>
-              <label class="text-sm text-zinc-400">Departamento</label>
+              <label class="text-xs font-medium text-zinc-400">Departamento</label>
               <select
                 v-model="transferForm.departmentId"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700 bg-neutral-900/80 px-4 py-2.5 text-white outline-none transition focus:border-blue-500"
+                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
               >
                 <option value="">Sem departamento</option>
                 <option v-for="dept in transferDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
               </select>
             </div>
 
-            <p v-if="transferError" class="text-sm text-red-400">{{ transferError }}</p>
+            <p v-if="transferError" class="text-xs text-red-400">{{ transferError }}</p>
 
             <button
               :disabled="transferring"
-              class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               @click="confirmTransfer"
             >
-              <LoaderCircle v-if="transferring" :size="16" class="animate-spin" />
-              Confirmar transferência
+              <LoaderCircle v-if="transferring" :size="15" class="animate-spin" />
+              Confirmar
             </button>
           </div>
         </div>
@@ -387,7 +433,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick, computed, reactive } from "vue"
 import {
   Search, CheckCheck, CheckCircle, RotateCcw, Send, MessageSquare,
-  ArrowRightLeft, PanelRight, X, LoaderCircle,
+  ArrowRightLeft, PanelRight, X, LoaderCircle, User, Layers,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
@@ -444,7 +490,6 @@ const showInfoPanel = ref(true)
 const messagesContainerRef = ref<HTMLElement | null>(null)
 const scrollAnchorRef = ref<HTMLElement | null>(null)
 
-// Transfer
 const showTransferModal = ref(false)
 const transferring = ref(false)
 const transferError = ref("")
@@ -476,7 +521,7 @@ watch(search, (val) => {
 let listInterval: ReturnType<typeof setInterval> | null = null
 let messagesInterval: ReturnType<typeof setInterval> | null = null
 
-// ── Avatar helpers ────────────────────────────────────────────────────────────
+// ── Avatar ────────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
   "linear-gradient(135deg, #3b82f6, #06b6d4)",
@@ -495,7 +540,7 @@ function initials(name: string) {
   return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?"
 }
 
-// ── Date / time helpers ───────────────────────────────────────────────────────
+// ── Time helpers ──────────────────────────────────────────────────────────────
 
 function formatTime(iso?: string | null) {
   if (!iso) return ""
@@ -541,13 +586,11 @@ async function loadConversations() {
     const result = await api<ConvSummary[]>(`/conversations?${params}`)
     if (loadId === currentLoadId) conversations.value = result
   } catch {
-    // polling errors are silent
+    // polling silent
   } finally {
     if (loadId === currentLoadId) listLoading.value = false
   }
 }
-
-// ── Load transfer options ─────────────────────────────────────────────────────
 
 async function loadTransferOptions() {
   const [usersRes, deptsRes] = await Promise.allSettled([
@@ -558,7 +601,7 @@ async function loadTransferOptions() {
   transferDepts.value = deptsRes.status === "fulfilled" ? deptsRes.value : []
 }
 
-// ── Select conversation ───────────────────────────────────────────────────────
+// ── Conversation select ───────────────────────────────────────────────────────
 
 async function selectConversation(id: string) {
   if (activeConversationId.value === id) return
@@ -592,7 +635,7 @@ function scrollToBottom(smooth = true) {
   nextTick(() => scrollAnchorRef.value?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" }))
 }
 
-// ── Send message ──────────────────────────────────────────────────────────────
+// ── Send ──────────────────────────────────────────────────────────────────────
 
 async function sendMessage() {
   const content = inputText.value.trim()
@@ -628,7 +671,7 @@ async function sendMessage() {
   }
 }
 
-// ── Change status ─────────────────────────────────────────────────────────────
+// ── Status ────────────────────────────────────────────────────────────────────
 
 async function changeStatus(status: "OPEN" | "RESOLVED") {
   if (!activeConversationId.value) return
@@ -678,7 +721,7 @@ async function confirmTransfer() {
   }
 }
 
-// ── Textarea auto-resize ──────────────────────────────────────────────────────
+// ── Textarea resize ───────────────────────────────────────────────────────────
 
 function autoResize(e: Event) {
   const el = e.target as HTMLTextAreaElement
