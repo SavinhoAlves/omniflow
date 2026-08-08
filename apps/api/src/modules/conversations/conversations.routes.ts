@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission } from "../../middlewares/permission.middleware";
 import { PERMISSIONS } from "../../shared/permissions.catalog";
 import { ConversationsService } from "./conversations.service";
+import { logActivity } from "../../shared/activity-logger";
 
 const sendMessageSchema = z.object({
   content: z.string().min(1).max(4096),
@@ -39,6 +40,16 @@ export async function conversationsRoutes(app: FastifyInstance) {
       const conversation = await service.startConversation({
         ...body,
         authorId: auth.userId,
+      });
+      logActivity({
+        companyId: auth.companyId,
+        userId: auth.userId,
+        userName: auth.name,
+        action: "conversation.started",
+        entity: "conversation",
+        entityId: conversation.id,
+        details: { contactPhone: body.contactPhone },
+        ip: request.ip,
       });
       return reply.status(201).send(conversation);
     }
@@ -111,9 +122,20 @@ export async function conversationsRoutes(app: FastifyInstance) {
     "/conversations/:id/assign",
     { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_TRANSFER) },
     async (request, reply) => {
+      const auth = request.auth!;
       const { id } = request.params as { id: string };
       const data = assignSchema.parse(request.body);
       await service.assign(id, data);
+      logActivity({
+        companyId: auth.companyId,
+        userId: auth.userId,
+        userName: auth.name,
+        action: "conversation.transferred",
+        entity: "conversation",
+        entityId: id,
+        details: { assignedToId: data.assignedToId, departmentId: data.departmentId },
+        ip: request.ip,
+      });
       return reply.send({ ok: true });
     }
   );
@@ -122,9 +144,19 @@ export async function conversationsRoutes(app: FastifyInstance) {
     "/conversations/:id/status",
     { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_CLOSE) },
     async (request, reply) => {
+      const auth = request.auth!;
       const { id } = request.params as { id: string };
       const { status } = statusSchema.parse(request.body);
       await service.changeStatus(id, status);
+      logActivity({
+        companyId: auth.companyId,
+        userId: auth.userId,
+        userName: auth.name,
+        action: status === "RESOLVED" ? "conversation.closed" : "conversation.reopened",
+        entity: "conversation",
+        entityId: id,
+        ip: request.ip,
+      });
       return reply.send({ ok: true });
     }
   );

@@ -4,6 +4,7 @@ import { Prisma } from "@omnichannel/database";
 import { requirePermission } from "../../middlewares/permission.middleware";
 import { PERMISSIONS } from "../../shared/permissions.catalog";
 import { UsersService } from "./users.service";
+import { logActivity } from "../../shared/activity-logger";
 
 const createSchema = z.object({
   name: z.string().min(2),
@@ -30,7 +31,18 @@ export async function usersRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const body = createSchema.parse(request.body);
       try {
+        const auth = request.auth!;
         const user = await service.create(body);
+        logActivity({
+          companyId: auth.companyId,
+          userId: auth.userId,
+          userName: auth.name,
+          action: "user.created",
+          entity: "user",
+          entityId: user.id,
+          details: { name: user.name, email: user.email, role: user.role },
+          ip: request.ip,
+        });
         return reply.status(201).send(user);
       } catch (err) {
         // P2002 = violação de unique constraint — aqui só pode ser

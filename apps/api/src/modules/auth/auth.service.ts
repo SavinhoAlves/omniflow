@@ -6,6 +6,7 @@ import {
   hashRefreshToken,
 } from "../../shared/jwt";
 import { PermissionsService } from "../permissions/permissions.service";
+import { logActivity } from "../../shared/activity-logger";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -100,6 +101,15 @@ export class AuthService {
     const departmentIds = await prisma.userDepartment
       .findMany({ where: { userId: user.id }, select: { departmentId: true } })
       .then((rows: { departmentId: string }[]) => rows.map((r) => r.departmentId));
+
+    logActivity({
+      companyId: company.id,
+      userId: user.id,
+      userName: user.name,
+      action: "auth.login",
+      entity: "user",
+      entityId: user.id,
+    });
 
     return this.issueTokens(user.id, user.name, company.id, user.role, departmentIds);
   }

@@ -39,6 +39,9 @@ export const PERMISSIONS = {
 
   // Configurações da empresa
   SETTINGS_MANAGE: "settings.manage",
+
+  // Log de atividade
+  LOGS_VIEW: "logs.view",
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -91,6 +94,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "MEMBER", PermissionKey[
     PERMISSIONS.CAMPAIGNS_VIEW,
     PERMISSIONS.REPORTS_VIEW,
     PERMISSIONS.SETTINGS_MANAGE,
+    PERMISSIONS.LOGS_VIEW,
     // BILLING_MANAGE fica de fora do default — só OWNER por padrão,
     // empresa pode conceder via override se quiser.
   ],

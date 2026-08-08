@@ -108,8 +108,21 @@ export async function whatsappRoutes(app: FastifyInstance) {
     "/whatsapp/instances/:id/connect",
     { preHandler: requirePermission(PERMISSIONS.WHATSAPP_MANAGE_INSTANCES) },
     async (request, reply) => {
+      const auth = request.auth!;
       const { id } = request.params as { id: string };
       const state = await service.connect(id);
+      if (state.status === "CONNECTED" || state.status === "QR_PENDING") {
+        logActivity({
+          companyId: auth.companyId,
+          userId: auth.userId,
+          userName: auth.name,
+          action: "whatsapp.connect_requested",
+          entity: "whatsapp_instance",
+          entityId: id,
+          details: { status: state.status },
+          ip: request.ip,
+        });
+      }
       return reply.send({ status: state.status, qrCode: state.qrCode ?? null });
     }
   );

@@ -342,3 +342,27 @@ model UserPermissionOverride {
   @@index([userId])
   @@map("user_permission_overrides")
 }
+
+// ============================================================
+// Log de atividade — auditoria de ações do sistema
+// ============================================================
+// Não está em TENANT_SCOPED_MODELS: companyId é sempre passado
+// explicitamente pelo logger (que roda com isPlatform: true).
+// ============================================================
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  userId    String?  @map("user_id")
+  userName  String?  @map("user_name")
+  action    String
+  entity    String?
+  entityId  String?  @map("entity_id")
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([companyId, createdAt(sort: Desc)])
+  @@index([companyId])
+  @@map("activity_logs")
+}

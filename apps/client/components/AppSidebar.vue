@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { LayoutDashboard, MessageSquare, MessageCircle, Network, Users, Workflow, BarChart2, Settings } from "lucide-vue-next"
+import { LayoutDashboard, MessageSquare, MessageCircle, Network, Users, Workflow, BarChart2, Settings, ClipboardList } from "lucide-vue-next"
 
 const route = useRoute()
 
@@ -47,7 +47,8 @@ const menu = [
   { name: "Atendentes",            path: "/users",         icon: Users },
   { name: "Fluxo de atendimento",  path: "/workflows",     icon: Workflow },
   { name: "Relatórios",       path: "/reports",       icon: BarChart2 },
-  { name: "Configurações", path: "/settings",   icon: Settings },
+  { name: "Log de atividade", path: "/logs",          icon: ClipboardList },
+  { name: "Configurações",    path: "/settings",      icon: Settings },
 ]
 
 function isActive(path: string) {
