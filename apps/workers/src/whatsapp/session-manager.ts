@@ -14,6 +14,8 @@ interface SessionEntry {
   socket: WASocket;
   status: "CONNECTED" | "CONNECTING" | "QR_PENDING" | "DISCONNECTED" | "ERROR";
   qrCode?: string;
+  lastEventAt?: number;
+  watchdogTimer?: ReturnType<typeof setTimeout>;
 }
 
 /**
@@ -78,15 +80,36 @@ export class SessionManager {
       auth: state,
       printQRInTerminal: false,
       browser: ["OmniFlow", "Chrome", "20.0.04"],
+      syncFullHistory: false,
+      markOnlineOnConnect: false,
+      keepAliveIntervalMs: 15000,
     });
 
-    const entry: SessionEntry = { socket, status: "CONNECTING" };
+    const entry: SessionEntry = { socket, status: "CONNECTING", lastEventAt: Date.now() };
     this.sessions.set(instanceId, entry);
+
+    // Watchdog: se nenhum evento chegar em 2 min com sessão CONNECTED, reconecta.
+    // Detecta o estado "zombie" onde o WebSocket pode enviar mas não recebe push.
+    const startWatchdog = () => {
+      if (entry.watchdogTimer) clearTimeout(entry.watchdogTimer);
+      entry.watchdogTimer = setTimeout(() => {
+        if (entry.status !== "CONNECTED") return;
+        const silenceSec = Math.round((Date.now() - (entry.lastEventAt ?? 0)) / 1000);
+        console.warn(`[session-manager:watchdog] ${instanceId.slice(0,8)} silêncio ${silenceSec}s — forçando reconexão`);
+        try { socket.end(new Error("watchdog timeout")); } catch {}
+      }, 120_000);
+    };
+
+    const refreshWatchdog = () => {
+      entry.lastEventAt = Date.now();
+      startWatchdog();
+    };
 
     socket.ev.on("creds.update", saveCreds);
 
     socket.ev.on("connection.update", (update) => {
       const { connection, qr, lastDisconnect } = update;
+      refreshWatchdog();
 
       if (qr) {
         entry.status = "QR_PENDING";
@@ -96,9 +119,12 @@ export class SessionManager {
       if (connection === "open") {
         entry.status = "CONNECTED";
         entry.qrCode = undefined;
+        console.log(`[session-manager] ${instanceId.slice(0,8)} conectado — watchdog ativo (2 min)`);
+        startWatchdog();
       }
 
       if (connection === "close") {
+        if (entry.watchdogTimer) clearTimeout(entry.watchdogTimer);
         const disconnectCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
         const shouldReconnect = disconnectCode !== DisconnectReason.loggedOut;
         entry.status = shouldReconnect ? "DISCONNECTED" : "ERROR";
@@ -106,7 +132,9 @@ export class SessionManager {
         if (shouldReconnect) {
           // Reconexão automática para desconexões transientes
           this.sessions.delete(instanceId);
-          this.connect(instanceId);
+          this.connect(instanceId).catch((err: Error) =>
+            console.error(`[session-manager] Reconexão falhou para ${instanceId}:`, err.message)
+          );
         } else {
           // loggedOut: credenciais invalidadas — remove auth do disco
           // para que o próximo connect() gere um QR Code limpo.
@@ -117,8 +145,12 @@ export class SessionManager {
     });
 
     socket.ev.on("messages.upsert", async ({ messages, type }) => {
+      refreshWatchdog();
+      console.log(`[baileys:${instanceId.slice(0,8)}] messages.upsert type=${type} count=${messages.length}`);
       if (type !== "notify") return;
       for (const msg of messages) {
+        const jid = msg.key.remoteJid ?? "";
+        console.log(`[baileys:${instanceId.slice(0,8)}] msg fromMe=${msg.key.fromMe} jid=${jid}`);
         if (msg.key.fromMe) continue;
         await publishIncomingMessage(instanceId, msg);
       }
