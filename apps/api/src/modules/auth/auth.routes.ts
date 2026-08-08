@@ -45,7 +45,8 @@ export async function authRoutes(app: FastifyInstance) {
         const { accessToken, refreshToken } = await authService.login(
           body.email,
           body.password,
-          body.companySlug
+          body.companySlug,
+          request.ip
         );
         reply.setCookie(REFRESH_COOKIE, refreshToken, cookieOptions());
         return reply.send({ accessToken });

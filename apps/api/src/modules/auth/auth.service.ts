@@ -71,7 +71,7 @@ export class AuthService {
     return this.issueTokens(result.user.id, result.user.name, result.company.id, "OWNER", []);
   }
 
-  async login(email: string, password: string, companySlug: string) {
+  async login(email: string, password: string, companySlug: string, ip?: string) {
     const company = await prisma.company.findUnique({
       where: { slug: companySlug },
     });
@@ -109,6 +109,7 @@ export class AuthService {
       action: "auth.login",
       entity: "user",
       entityId: user.id,
+      ip,
     });
 
     return this.issueTokens(user.id, user.name, company.id, user.role, departmentIds);
