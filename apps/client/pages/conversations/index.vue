@@ -91,9 +91,12 @@
         </div>
 
         <div v-else class="p-2 space-y-px">
-          <button
+          <div
             v-for="conv in conversations"
             :key="conv.id"
+            class="relative group"
+          >
+          <button
             class="relative w-full flex items-start gap-3 rounded-xl px-3 py-3 text-left transition-all"
             :class="[
               activeConversationId === conv.id
@@ -103,6 +106,37 @@
             ]"
             @click="selectConversation(conv.id)"
           >
+            <!-- Dropdown trigger -->
+            <button
+              class="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 text-zinc-600 hover:bg-zinc-700 hover:text-zinc-300 transition-all"
+              @click.stop="toggleConvMenu(conv.id)"
+            >
+              <MoreVertical :size="13" />
+            </button>
+
+            <!-- Dropdown menu -->
+            <div
+              v-if="convMenuOpen === conv.id"
+              class="absolute right-2 top-8 z-20 min-w-[160px] rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
+              @click.stop
+            >
+              <button
+                v-if="conv.status === 'OPEN'"
+                class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
+                @click="quickFinish(conv); convMenuOpen = null"
+              >
+                <CheckCircle :size="13" class="text-emerald-400" />
+                Finalizar Atendimento
+              </button>
+              <button
+                class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:bg-zinc-800"
+                @click="deleteConv(conv); convMenuOpen = null"
+              >
+                <Trash2 :size="13" />
+                Apagar conversa
+              </button>
+            </div>
+
             <div
               class="relative h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold"
               :style="{ background: avatarGradient(conv.contact.name ?? conv.contact.phoneNumber) }"
@@ -140,6 +174,7 @@
               </div>
             </div>
           </button>
+          </div>
         </div>
       </div>
     </div>
@@ -182,7 +217,7 @@
             @click="changeStatus('RESOLVED')"
           >
             <CheckCircle :size="12" />
-            Resolver
+            Finalizar
           </button>
           <button
             v-else
@@ -242,7 +277,7 @@
       <!-- Input -->
       <div class="shrink-0 border-t border-zinc-800/80 bg-zinc-900 px-5 py-3.5">
         <div v-if="activeConversation.status === 'RESOLVED'" class="flex items-center justify-center gap-2 py-1.5 text-xs text-zinc-600">
-          Conversa encerrada —
+          Atendimento finalizado —
           <button class="text-blue-500 transition hover:text-blue-400" @click="changeStatus('OPEN')">Reabrir</button>
         </div>
         <div v-else class="flex items-end gap-3">
@@ -316,7 +351,7 @@
             ? 'border-emerald-600/20 bg-emerald-500/10 text-emerald-400'
             : 'border-zinc-700/60 bg-zinc-800/40 text-zinc-500'"
         >
-          {{ activeConversation.status === 'OPEN' ? 'Em atendimento' : 'Resolvida' }}
+          {{ activeConversation.status === 'OPEN' ? 'Em atendimento' : 'Finalizada' }}
         </span>
       </div>
 
@@ -402,7 +437,7 @@
           @click="changeStatus('RESOLVED')"
         >
           <CheckCircle :size="13" />
-          Resolver conversa
+          Finalizar atendimento
         </button>
         <button
           v-else
@@ -594,7 +629,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, reactive } from
 import {
   Search, CheckCheck, CheckCircle, RotateCcw, Send, MessageSquare,
   ArrowRightLeft, PanelRight, X, LoaderCircle, User, Layers,
-  Plus, ChevronDown,
+  Plus, ChevronDown, MoreVertical, Trash2,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
@@ -683,6 +718,9 @@ const instances = ref<ChannelInstance[]>([])
 const connectedInstances = computed(() =>
   instances.value.filter((i) => i.connectionStatus === "CONNECTED")
 )
+
+// Conversation dropdown menu
+const convMenuOpen = ref<string | null>(null)
 
 const TABS = [
   { label: "Todas", value: "ALL" as const },
@@ -974,6 +1012,35 @@ function autoResize(e: Event) {
   el.style.height = `${Math.min(el.scrollHeight, 128)}px`
 }
 
+// ── Conversation card dropdown ────────────────────────────────────────────────
+
+function toggleConvMenu(id: string) {
+  convMenuOpen.value = convMenuOpen.value === id ? null : id
+}
+
+async function quickFinish(conv: ConvSummary) {
+  if (conv.status !== "OPEN") return
+  try {
+    await api(`/conversations/${conv.id}/status`, { method: "PATCH", body: { status: "RESOLVED" } })
+    if (activeConversation.value?.id === conv.id) activeConversation.value.status = "RESOLVED"
+    await loadConversations()
+    if (activeConversation.value?.id === conv.id) await pollMessages()
+  } catch {}
+}
+
+async function deleteConv(conv: ConvSummary) {
+  if (!confirm(`Apagar a conversa com ${conv.contact.name || conv.contact.phoneNumber}? Esta ação não pode ser desfeita.`)) return
+  try {
+    await api(`/conversations/${conv.id}`, { method: "DELETE" })
+    if (activeConversationId.value === conv.id) {
+      activeConversationId.value = null
+      activeConversation.value = null
+      messages.value = []
+    }
+    conversations.value = conversations.value.filter((c) => c.id !== conv.id)
+  } catch {}
+}
+
 // ── Watchers & lifecycle ──────────────────────────────────────────────────────
 
 watch(activeTab, () => {
@@ -992,14 +1059,18 @@ watch(filterDeptId, () => {
   loadConversations()
 })
 
+function closeMenuOnClickOutside() { convMenuOpen.value = null }
+
 onMounted(() => {
   loadConversations()
   loadSidebarData()
   listInterval = setInterval(loadConversations, 5000)
+  document.addEventListener("click", closeMenuOnClickOutside)
 })
 
 onUnmounted(() => {
   clearInterval(listInterval!)
   clearInterval(messagesInterval!)
+  document.removeEventListener("click", closeMenuOnClickOutside)
 })
 </script>

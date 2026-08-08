@@ -118,6 +118,26 @@ export async function conversationsRoutes(app: FastifyInstance) {
 
   // ── Atribuição e status ──────────────────────────────────────────────────────
 
+  app.delete(
+    "/conversations/:id",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_CLOSE) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params as { id: string };
+      await service.deleteConversation(id);
+      logActivity({
+        companyId: auth.companyId,
+        userId: auth.userId,
+        userName: auth.name,
+        action: "conversation.deleted",
+        entity: "conversation",
+        entityId: id,
+        ip: request.ip,
+      });
+      return reply.status(204).send();
+    }
+  );
+
   app.patch(
     "/conversations/:id/assign",
     { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_TRANSFER) },

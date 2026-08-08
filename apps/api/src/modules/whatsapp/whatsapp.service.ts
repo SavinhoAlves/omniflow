@@ -101,6 +101,28 @@ export class WhatsAppService {
     return provider.sendTemplateMessage(instanceId, input);
   }
 
+  async disconnect(instanceId: string) {
+    const instance = await prisma.whatsAppInstance.findFirstOrThrow({ where: { id: instanceId } });
+    const provider = this.providerFactory.get(instance.providerType as WhatsAppProviderType);
+    await provider.disconnect?.(instanceId);
+    await prisma.whatsAppInstance.update({
+      where: { id: instanceId },
+      data: { connectionStatus: "DISCONNECTED", qrCode: null },
+    });
+  }
+
+  async deleteInstance(instanceId: string) {
+    await this.disconnect(instanceId).catch(() => {});
+    await prisma.whatsAppInstance.deleteMany({ where: { id: instanceId } });
+  }
+
+  async updateInstance(instanceId: string, input: { name?: string; description?: string; defaultDepartmentId?: string | null }) {
+    return prisma.whatsAppInstance.update({
+      where: { id: instanceId },
+      data: input,
+    });
+  }
+
   private async getInstanceOrThrow(instanceId: string) {
     return prisma.whatsAppInstance.findFirstOrThrow({ where: { id: instanceId } });
   }

@@ -216,6 +216,10 @@ export class ConversationsService {
     ]);
   }
 
+  async deleteConversation(conversationId: string) {
+    await prisma.conversation.deleteMany({ where: { id: conversationId } });
+  }
+
   async changeStatus(conversationId: string, status: "OPEN" | "RESOLVED") {
     await Promise.all([
       prisma.conversation.updateMany({

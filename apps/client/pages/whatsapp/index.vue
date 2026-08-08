@@ -99,21 +99,69 @@
                 </p>
               </div>
 
-              <button
-                class="mt-4 flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition"
-                :class="instance.connectionStatus === 'CONNECTED'
-                  ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
-                  : 'bg-blue-600 text-white hover:bg-blue-500'"
-                :disabled="connectingId === instance.id"
-                @click="connect(instance)"
-              >
-                <LoaderCircle v-if="connectingId === instance.id" :size="15" class="animate-spin" />
-                <template v-else>
-                  <RefreshCw v-if="instance.connectionStatus === 'CONNECTED'" :size="15" />
-                  <Plug v-else :size="15" />
-                </template>
-                {{ instance.connectionStatus === 'CONNECTED' ? 'Reconectar' : 'Conectar' }}
-              </button>
+              <!-- Ações quando CONNECTED -->
+              <template v-if="instance.connectionStatus === 'CONNECTED'">
+                <div class="mt-4 flex gap-2">
+                  <button
+                    class="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:bg-zinc-700 hover:text-white"
+                    :disabled="connectingId === instance.id"
+                    @click="connect(instance)"
+                  >
+                    <RefreshCw :size="13" />
+                    Reconectar
+                  </button>
+                  <button
+                    class="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:border-yellow-600/40 hover:bg-yellow-600/10 hover:text-yellow-400"
+                    @click="disconnectInstance(instance)"
+                  >
+                    <PowerOff :size="13" />
+                    Desconectar
+                  </button>
+                </div>
+                <div class="mt-2 flex gap-2">
+                  <button
+                    class="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:bg-zinc-700 hover:text-white"
+                    @click="openEditModal(instance)"
+                  >
+                    <Pencil :size="13" />
+                    Editar
+                  </button>
+                  <button
+                    class="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:border-red-600/40 hover:bg-red-600/10 hover:text-red-400"
+                    @click="confirmDelete(instance)"
+                  >
+                    <Trash2 :size="13" />
+                    Excluir
+                  </button>
+                </div>
+              </template>
+
+              <!-- Conectar quando desconectado -->
+              <template v-else>
+                <div class="mt-4 flex gap-2">
+                  <button
+                    class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+                    :disabled="connectingId === instance.id"
+                    @click="connect(instance)"
+                  >
+                    <LoaderCircle v-if="connectingId === instance.id" :size="15" class="animate-spin" />
+                    <Plug v-else :size="15" />
+                    Conectar
+                  </button>
+                  <button
+                    class="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:bg-zinc-700 hover:text-white"
+                    @click="openEditModal(instance)"
+                  >
+                    <Pencil :size="13" />
+                  </button>
+                  <button
+                    class="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:border-red-600/40 hover:bg-red-600/10 hover:text-red-400"
+                    @click="confirmDelete(instance)"
+                  >
+                    <Trash2 :size="13" />
+                  </button>
+                </div>
+              </template>
             </div>
           </div>
         </div>
@@ -303,6 +351,86 @@
       </div>
     </Teleport>
 
+    <!-- Modal: Editar canal ─────────────────────────────────────────────── -->
+    <Teleport to="body">
+      <div
+        v-if="editModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+        @click.self="editModal = null"
+      >
+        <div class="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
+          <div class="mb-5 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-white">Editar canal</h2>
+            <button class="text-zinc-500 transition hover:text-zinc-300" @click="editModal = null"><X :size="20" /></button>
+          </div>
+          <form class="space-y-4" @submit.prevent="saveEdit">
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-zinc-400">Nome</label>
+              <input
+                v-model="editModal.name"
+                type="text"
+                class="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-medium text-zinc-400">Descrição</label>
+              <input
+                v-model="editModal.description"
+                type="text"
+                class="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                placeholder="Opcional"
+              />
+            </div>
+            <button
+              type="submit"
+              :disabled="editSaving || !editModal.name.trim()"
+              class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+            >
+              <LoaderCircle v-if="editSaving" :size="15" class="animate-spin" />
+              {{ editSaving ? 'Salvando…' : 'Salvar' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Modal: Confirmar exclusão ───────────────────────────────────────── -->
+    <Teleport to="body">
+      <div
+        v-if="deleteTarget"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+        @click.self="deleteTarget = null"
+      >
+        <div class="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
+          <div class="mb-1 flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
+              <Trash2 :size="20" class="text-red-400" />
+            </div>
+            <h2 class="text-base font-semibold text-white">Excluir canal</h2>
+          </div>
+          <p class="mt-3 text-sm text-zinc-400">
+            Tem certeza que deseja excluir <span class="font-semibold text-white">{{ deleteTarget.name }}</span>? Esta ação não pode ser desfeita.
+          </p>
+          <div class="mt-5 flex gap-3">
+            <button
+              class="flex-1 rounded-xl border border-zinc-700 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800"
+              @click="deleteTarget = null"
+            >
+              Cancelar
+            </button>
+            <button
+              class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 py-2 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
+              :disabled="deleting"
+              @click="doDelete"
+            >
+              <LoaderCircle v-if="deleting" :size="14" class="animate-spin" />
+              {{ deleting ? 'Excluindo…' : 'Excluir' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Modal: QR Code ────────────────────────────────────────────────── -->
     <Teleport to="body">
       <div
@@ -399,7 +527,7 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount } from "vue"
 import {
   Plus, MessageCircle, LoaderCircle, X, Smartphone, Globe, Server,
   RefreshCw, Plug, Eye, EyeOff, CheckCircle, AlertCircle, Timer,
-  Facebook, Instagram,
+  Facebook, Instagram, PowerOff, Pencil, Trash2,
 } from "lucide-vue-next"
 import QRCode from "qrcode"
 import { useApi } from "../../composables/useApi"
@@ -759,6 +887,62 @@ async function connect(instance: ChannelInstance) {
     instance.connectionStatus = "ERROR"
   } finally {
     connectingId.value = null
+  }
+}
+
+// ── Disconnect ────────────────────────────────────────────────────────────────
+
+async function disconnectInstance(instance: ChannelInstance) {
+  try {
+    await api(`/whatsapp/instances/${instance.id}/disconnect`, { method: "POST" })
+    instance.connectionStatus = "DISCONNECTED"
+  } catch {}
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+
+interface EditModal { id: string; name: string; description: string }
+const editModal = ref<EditModal | null>(null)
+const editSaving = ref(false)
+
+function openEditModal(instance: ChannelInstance) {
+  editModal.value = { id: instance.id, name: instance.name, description: instance.description ?? "" }
+}
+
+async function saveEdit() {
+  if (!editModal.value) return
+  editSaving.value = true
+  try {
+    const updated = await api<ChannelInstance>(`/whatsapp/instances/${editModal.value.id}`, {
+      method: "PATCH",
+      body: { name: editModal.value.name, description: editModal.value.description },
+    })
+    const idx = instances.value.findIndex((i) => i.id === updated.id)
+    if (idx !== -1) instances.value[idx] = { ...instances.value[idx], ...updated }
+    editModal.value = null
+  } catch {} finally {
+    editSaving.value = false
+  }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+const deleteTarget = ref<ChannelInstance | null>(null)
+const deleting = ref(false)
+
+function confirmDelete(instance: ChannelInstance) {
+  deleteTarget.value = instance
+}
+
+async function doDelete() {
+  if (!deleteTarget.value) return
+  deleting.value = true
+  try {
+    await api(`/whatsapp/instances/${deleteTarget.value.id}`, { method: "DELETE" })
+    instances.value = instances.value.filter((i) => i.id !== deleteTarget.value!.id)
+    deleteTarget.value = null
+  } catch {} finally {
+    deleting.value = false
   }
 }
 

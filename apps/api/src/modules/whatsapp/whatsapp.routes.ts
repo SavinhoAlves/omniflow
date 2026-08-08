@@ -6,6 +6,7 @@ import { requirePermission } from "../../middlewares/permission.middleware";
 import { PERMISSIONS } from "../../shared/permissions.catalog";
 import { WhatsAppService } from "./whatsapp.service";
 import { IncomingQueueClient } from "./incoming-queue.client";
+import { logActivity } from "../../shared/activity-logger";
 
 // ── Schemas de validação ─────────────────────────────────────────────────────
 
@@ -101,6 +102,61 @@ export async function whatsappRoutes(app: FastifyInstance) {
     async (_request, reply) => {
       const instances = await service.listInstances();
       return reply.send(instances);
+    }
+  );
+
+  app.patch(
+    "/whatsapp/instances/:id",
+    { preHandler: requirePermission(PERMISSIONS.WHATSAPP_MANAGE_INSTANCES) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = z.object({
+        name: z.string().min(2).optional(),
+        description: z.string().optional(),
+        defaultDepartmentId: z.string().uuid().nullable().optional(),
+      }).parse(request.body);
+      const updated = await service.updateInstance(id, body);
+      return reply.send(updated);
+    }
+  );
+
+  app.delete(
+    "/whatsapp/instances/:id",
+    { preHandler: requirePermission(PERMISSIONS.WHATSAPP_MANAGE_INSTANCES) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params as { id: string };
+      await service.deleteInstance(id);
+      logActivity({
+        companyId: auth.companyId,
+        userId: auth.userId,
+        userName: auth.name,
+        action: "whatsapp.instance_deleted",
+        entity: "whatsapp_instance",
+        entityId: id,
+        ip: request.ip,
+      });
+      return reply.status(204).send();
+    }
+  );
+
+  app.post(
+    "/whatsapp/instances/:id/disconnect",
+    { preHandler: requirePermission(PERMISSIONS.WHATSAPP_MANAGE_INSTANCES) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params as { id: string };
+      await service.disconnect(id);
+      logActivity({
+        companyId: auth.companyId,
+        userId: auth.userId,
+        userName: auth.name,
+        action: "whatsapp.disconnected",
+        entity: "whatsapp_instance",
+        entityId: id,
+        ip: request.ip,
+      });
+      return reply.send({ ok: true });
     }
   );
 
