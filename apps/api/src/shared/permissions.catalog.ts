@@ -77,6 +77,7 @@ export function joinPermissionKey(resource: string, action: string): string {
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "MEMBER", PermissionKey[]> = {
   ADMIN: [
+    PERMISSIONS.CONVERSATIONS_VIEW_OWN,
     PERMISSIONS.CONVERSATIONS_VIEW_ALL,
     PERMISSIONS.CONVERSATIONS_TRANSFER,
     PERMISSIONS.CONVERSATIONS_CLOSE,

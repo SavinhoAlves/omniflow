@@ -152,6 +152,8 @@ export class SessionManager {
         const jid = msg.key.remoteJid ?? "";
         console.log(`[baileys:${instanceId.slice(0,8)}] msg fromMe=${msg.key.fromMe} jid=${jid}`);
         if (msg.key.fromMe) continue;
+        // Aceita apenas conversas 1-a-1 com números diretos
+        if (!jid.endsWith("@s.whatsapp.net")) continue;
         await publishIncomingMessage(instanceId, msg);
       }
     });

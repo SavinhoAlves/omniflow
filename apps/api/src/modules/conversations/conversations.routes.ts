@@ -32,7 +32,7 @@ export async function conversationsRoutes(app: FastifyInstance) {
   // Cria (ou reutiliza) uma conversa e envia a primeira mensagem proativamente.
   app.post(
     "/conversations/start",
-    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_TRANSFER) },
     async (request, reply) => {
       const auth = request.auth!;
       const body = initiateSchema.parse(request.body);
