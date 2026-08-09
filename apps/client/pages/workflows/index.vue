@@ -4,6 +4,14 @@
       <p class="text-sm text-zinc-500">
         {{ !loading ? `${workflow.rules.length} regra${workflow.rules.length !== 1 ? 's' : ''} de direcionamento` : '' }}
       </p>
+      <div class="flex items-center gap-2">
+        <NuxtLink
+          to="/workflows/builder"
+          class="flex items-center gap-1.5 rounded-xl border border-blue-600/30 bg-blue-600/10 px-3 py-2 text-sm font-medium text-blue-400 transition hover:bg-blue-600/20"
+        >
+          <GitBranch :size="15" />
+          Editor visual
+        </NuxtLink>
       <label class="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5">
         <span class="text-sm text-zinc-400">{{ workflow.enabled ? "Bot ativo" : "Bot desativado" }}</span>
         <button
@@ -20,6 +28,7 @@
           />
         </button>
       </label>
+      </div>
     </div>
 
     <div v-if="loading" class="h-80 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900" />
@@ -177,7 +186,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from "vue"
-import { Plus, ArrowRight, Trash2, LoaderCircle } from "lucide-vue-next"
+import { Plus, ArrowRight, Trash2, LoaderCircle, GitBranch } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
 definePageMeta({ middleware: "auth" })

@@ -12,14 +12,13 @@ const ruleSchema = z.object({
 const upsertSchema = z.object({
   enabled: z.boolean(),
   welcomeMessage: z.string().optional().nullable(),
-  // O frontend manda "" quando nenhum departamento de fallback foi
-  // escolhido ainda (ver <select> em workflows/index.vue) — trata
-  // como "nenhum" em vez de falhar a validação de uuid.
   fallbackDepartmentId: z
     .union([z.string().uuid(), z.literal("")])
     .optional()
     .nullable(),
   rules: z.array(ruleSchema),
+  flowNodes: z.array(z.any()).optional().nullable(),
+  flowEdges: z.array(z.any()).optional().nullable(),
 });
 
 export async function workflowsRoutes(app: FastifyInstance) {
@@ -49,6 +48,8 @@ export async function workflowsRoutes(app: FastifyInstance) {
           welcomeMessage: body.welcomeMessage,
           fallbackDepartmentId: body.fallbackDepartmentId || null,
           rules: body.rules,
+          flowNodes: body.flowNodes ?? undefined,
+          flowEdges: body.flowEdges ?? undefined,
         });
         return reply.send(workflow);
       } catch (err) {

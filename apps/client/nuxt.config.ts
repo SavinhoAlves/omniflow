@@ -5,6 +5,11 @@ export default defineNuxtConfig({
     "@nuxtjs/tailwindcss"
   ],
 
+  css: [
+    "@vue-flow/core/dist/style.css",
+    "@vue-flow/core/dist/theme-default.css",
+  ],
+
   runtimeConfig: {
     public: {
       apiUrl:

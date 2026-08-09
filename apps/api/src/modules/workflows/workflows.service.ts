@@ -12,6 +12,8 @@ interface UpsertWorkflowInput {
   welcomeMessage?: string | null;
   fallbackDepartmentId?: string | null;
   rules: RuleInput[];
+  flowNodes?: unknown[] | null;
+  flowEdges?: unknown[] | null;
 }
 
 export class WorkflowsService {
@@ -55,11 +57,15 @@ export class WorkflowsService {
           enabled: input.enabled,
           welcomeMessage: input.welcomeMessage ?? null,
           fallbackDepartmentId: input.fallbackDepartmentId ?? null,
+          flowNodes: (input.flowNodes ?? undefined) as any,
+          flowEdges: (input.flowEdges ?? undefined) as any,
         },
         update: {
           enabled: input.enabled,
           welcomeMessage: input.welcomeMessage ?? null,
           fallbackDepartmentId: input.fallbackDepartmentId ?? null,
+          ...(input.flowNodes !== undefined && { flowNodes: input.flowNodes as any }),
+          ...(input.flowEdges !== undefined && { flowEdges: input.flowEdges as any }),
         },
       });
 
@@ -125,6 +131,8 @@ export class WorkflowsService {
       enabled: workflow.enabled,
       welcomeMessage: workflow.welcomeMessage ?? "",
       fallbackDepartmentId: workflow.fallbackDepartmentId ?? "",
+      flowNodes: (workflow.flowNodes as unknown[]) ?? null,
+      flowEdges: (workflow.flowEdges as unknown[]) ?? null,
       rules: workflow.rules
         .slice()
         .sort((a, b) => a.position - b.position)

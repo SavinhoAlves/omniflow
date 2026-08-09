@@ -292,6 +292,8 @@ model Workflow {
   fallbackDepartmentId String?        @map("fallback_department_id")
   fallbackDepartment   Department?    @relation("WorkflowFallbackDepartment", fields: [fallbackDepartmentId], references: [id], onDelete: SetNull)
   rules                WorkflowRule[]
+  flowNodes            Json?          @map("flow_nodes")
+  flowEdges            Json?          @map("flow_edges")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
 
