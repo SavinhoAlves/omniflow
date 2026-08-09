@@ -20,9 +20,13 @@ export async function publishIncomingMessage(instanceId: string, rawMessage: any
     rawMessage.message?.extendedTextMessage?.text ??
     undefined;
 
+  const rawJid = rawMessage.key.remoteJid ?? "";
+  const bareNumber = rawJid.replace("@s.whatsapp.net", "");
+  const fromNumber = bareNumber.startsWith("+") ? bareNumber : `+${bareNumber}`;
+
   await incomingQueue.add("incoming", {
     instanceId,
-    fromNumber: rawMessage.key.remoteJid?.replace("@s.whatsapp.net", ""),
+    fromNumber,
     contactName: rawMessage.pushName,
     text,
     providerMessageId: rawMessage.key.id,

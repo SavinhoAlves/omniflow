@@ -40,7 +40,7 @@ export function startIncomingMessageProcessor() {
         });
 
         if (!instance) {
-          console.warn(`[incoming-processor] Instância ${instanceId} não encontrada.`);
+          console.warn(`[incoming-processor] Instância ${instanceId} não encontrada no banco.`);
           return;
         }
 
@@ -99,11 +99,17 @@ export function startIncomingMessageProcessor() {
           data: { lastMessageAt: new Date() },
         });
 
+        console.log(`[incoming-processor] Mensagem de ${fromNumber} → conv ${conversation.id.slice(0, 8)} (nova=${isNewConversation})`);
+
         // 6. Executa o bot se o workflow da empresa estiver habilitado
         const workflow = await prisma.workflow.findFirst({
           where: { companyId, enabled: true },
           select: { flowNodes: true, flowEdges: true },
         });
+
+        if (!workflow) {
+          console.log(`[incoming-processor] Nenhum workflow ativo para empresa ${companyId.slice(0, 8)} — bot não executado.`);
+        }
 
         const shouldRunBot =
           workflow?.flowNodes != null &&
