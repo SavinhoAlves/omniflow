@@ -66,4 +66,14 @@ export async function departmentsRoutes(app: FastifyInstance) {
       }
     }
   );
+
+  app.delete(
+    "/departments/:id",
+    { preHandler: requirePermission(PERMISSIONS.DEPARTMENTS_MANAGE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      await service.delete(id);
+      return reply.status(204).send();
+    }
+  );
 }

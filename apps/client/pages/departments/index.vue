@@ -58,9 +58,14 @@
             </div>
           </div>
 
-          <button class="text-zinc-500 hover:text-zinc-300" @click="openEditModal(dept)">
-            <Pencil :size="16" />
-          </button>
+          <div class="flex items-center gap-1">
+            <button class="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300" title="Editar" @click="openEditModal(dept)">
+              <Pencil :size="15" />
+            </button>
+            <button class="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-800 hover:text-red-400" title="Excluir" @click="confirmDeleteDept(dept)">
+              <Trash2 :size="15" />
+            </button>
+          </div>
         </div>
 
         <p class="mt-3 text-sm text-zinc-500">
@@ -132,11 +137,47 @@
       </div>
     </Teleport>
   </div>
+
+  <!-- Modal: confirmar exclusão de departamento -->
+  <Teleport to="body">
+    <div
+      v-if="deleteTarget"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      @click.self="deleteTarget = null"
+    >
+      <div class="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+        <div class="mb-1 flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
+            <Trash2 :size="20" class="text-red-400" />
+          </div>
+          <h2 class="text-base font-semibold text-white">Excluir departamento</h2>
+        </div>
+        <p class="mt-3 text-sm text-zinc-400">
+          Tem certeza que deseja excluir <span class="font-semibold text-white">{{ deleteTarget.name }}</span>? Conversas associadas perderão o departamento.
+        </p>
+        <div class="mt-5 flex gap-3">
+          <button
+            class="flex-1 rounded-xl border border-zinc-700 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800"
+            @click="deleteTarget = null"
+          >Cancelar</button>
+          <button
+            class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 py-2 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
+            :disabled="deleting"
+            @click="doDeleteDept"
+          >
+            <LoaderCircle v-if="deleting" :size="14" class="animate-spin" />
+            {{ deleting ? 'Excluindo…' : 'Excluir' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue"
-import { Plus, Network, Users, Pencil, X, LoaderCircle } from "lucide-vue-next"
+import { Plus, Network, Users, Pencil, Trash2, X, LoaderCircle } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
 definePageMeta({ middleware: "auth" })
@@ -215,6 +256,25 @@ async function saveDepartment() {
       err?.data?.error ?? err?.data?.message ?? "Não foi possível salvar o departamento."
   } finally {
     saving.value = false
+  }
+}
+
+// ── Delete department ─────────────────────────────────────────────────────────
+
+const deleteTarget = ref<Department | null>(null)
+const deleting = ref(false)
+
+function confirmDeleteDept(dept: Department) { deleteTarget.value = dept }
+
+async function doDeleteDept() {
+  if (!deleteTarget.value) return
+  deleting.value = true
+  try {
+    await api(`/departments/${deleteTarget.value.id}`, { method: "DELETE" })
+    departments.value = departments.value.filter((d) => d.id !== deleteTarget.value!.id)
+    deleteTarget.value = null
+  } catch {} finally {
+    deleting.value = false
   }
 }
 

@@ -13,6 +13,14 @@ const createSchema = z.object({
   departmentIds: z.array(z.string().uuid()).optional(),
 });
 
+const updateSchema = z.object({
+  name: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+  role: z.enum(["ADMIN", "MEMBER"]).optional(),
+  active: z.boolean().optional(),
+  departmentIds: z.array(z.string().uuid()).optional(),
+});
+
 export async function usersRoutes(app: FastifyInstance) {
   const service = new UsersService();
 
@@ -51,6 +59,61 @@ export async function usersRoutes(app: FastifyInstance) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
           return reply.status(409).send({ error: "Já existe um atendente com este email" });
         }
+        throw err;
+      }
+    }
+  );
+
+  app.patch(
+    "/users/:id",
+    { preHandler: requirePermission(PERMISSIONS.USERS_MANAGE) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params as { id: string };
+      const body = updateSchema.parse(request.body);
+      try {
+        const updated = await service.update(id, body);
+        logActivity({
+          companyId: auth.companyId,
+          userId: auth.userId,
+          userName: auth.name,
+          action: "user.updated",
+          entity: "user",
+          entityId: id,
+          details: { changes: body },
+          ip: request.ip,
+        });
+        return reply.send(updated);
+      } catch (err: any) {
+        if (err.code === "OWNER_PROTECTED") return reply.status(403).send({ error: err.message });
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+          return reply.status(409).send({ error: "Já existe um atendente com este email" });
+        }
+        throw err;
+      }
+    }
+  );
+
+  app.delete(
+    "/users/:id",
+    { preHandler: requirePermission(PERMISSIONS.USERS_MANAGE) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params as { id: string };
+      try {
+        await service.delete(id);
+        logActivity({
+          companyId: auth.companyId,
+          userId: auth.userId,
+          userName: auth.name,
+          action: "user.deleted",
+          entity: "user",
+          entityId: id,
+          ip: request.ip,
+        });
+        return reply.status(204).send();
+      } catch (err: any) {
+        if (err.code === "OWNER_PROTECTED") return reply.status(403).send({ error: err.message });
         throw err;
       }
     }

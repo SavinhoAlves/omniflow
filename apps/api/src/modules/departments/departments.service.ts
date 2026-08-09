@@ -76,4 +76,8 @@ export class DepartmentsService {
       data: input,
     });
   }
+
+  async delete(id: string) {
+    await prisma.department.deleteMany({ where: { id } });
+  }
 }

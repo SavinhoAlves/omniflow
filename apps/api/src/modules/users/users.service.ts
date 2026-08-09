@@ -46,6 +46,55 @@ export class UsersService {
    * só existe o hash no banco). A tela precisa mostrar isso pro
    * admin copiar/repassar, porque não há como reobter esse valor.
    */
+  async update(
+    userId: string,
+    input: { name?: string; email?: string; role?: "ADMIN" | "MEMBER"; active?: boolean; departmentIds?: string[] }
+  ) {
+    const user = await prisma.user.findFirstOrThrow({ where: { id: userId } });
+    if (user.role === "OWNER") throw Object.assign(new Error("OWNER não pode ser editado"), { code: "OWNER_PROTECTED" });
+
+    const departmentIds = input.departmentIds;
+    let validDepartmentIds: string[] | undefined;
+    if (departmentIds !== undefined) {
+      const valid = departmentIds.length > 0
+        ? await prisma.department.findMany({ where: { id: { in: departmentIds } }, select: { id: true } })
+        : [];
+      validDepartmentIds = valid.map((d) => d.id);
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(input.name !== undefined && { name: input.name }),
+        ...(input.email !== undefined && { email: input.email.toLowerCase() }),
+        ...(input.role !== undefined && { role: input.role }),
+        ...(input.active !== undefined && { active: input.active }),
+        ...(validDepartmentIds !== undefined && {
+          userDepartments: {
+            deleteMany: {},
+            create: validDepartmentIds.map((id) => ({ departmentId: id })),
+          },
+        }),
+      },
+      include: { userDepartments: { include: { department: { select: { name: true } } } } },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      role: updated.role,
+      active: updated.active,
+      departmentNames: updated.userDepartments.map((ud) => ud.department.name),
+    };
+  }
+
+  async delete(userId: string) {
+    const user = await prisma.user.findFirstOrThrow({ where: { id: userId } });
+    if (user.role === "OWNER") throw Object.assign(new Error("OWNER não pode ser excluído"), { code: "OWNER_PROTECTED" });
+    await prisma.user.deleteMany({ where: { id: userId } });
+  }
+
   async create(input: {
     name: string;
     email: string;
