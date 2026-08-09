@@ -4,6 +4,12 @@ import { requirePermission } from "../../middlewares/permission.middleware";
 import { PERMISSIONS } from "../../shared/permissions.catalog";
 import { ContactsService } from "./contacts.service";
 
+const createContactSchema = z.object({
+  name: z.string().min(1).max(100),
+  phoneNumber: z.string().min(6).max(30),
+  notes: z.string().optional(),
+});
+
 const updateContactSchema = z.object({
   name: z.string().min(1).optional(),
   notes: z.string().optional(),
@@ -11,6 +17,17 @@ const updateContactSchema = z.object({
 
 export async function contactsRoutes(app: FastifyInstance) {
   const service = new ContactsService();
+
+  app.post(
+    "/contacts",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const data = createContactSchema.parse(request.body);
+      const contact = await service.create(auth.companyId, data);
+      return reply.status(201).send(contact);
+    }
+  );
 
   app.get(
     "/contacts",

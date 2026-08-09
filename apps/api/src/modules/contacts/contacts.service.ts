@@ -41,6 +41,15 @@ export class ContactsService {
     });
   }
 
+  async create(companyId: string, data: { name: string; phoneNumber: string; notes?: string }) {
+    return prisma.contact.upsert({
+      where: { companyId_phoneNumber: { companyId, phoneNumber: data.phoneNumber } },
+      create: { companyId, phoneNumber: data.phoneNumber, name: data.name, notes: data.notes },
+      update: { name: data.name, notes: data.notes ?? undefined },
+      select: { id: true, name: true, phoneNumber: true, avatarUrl: true, notes: true, createdAt: true },
+    });
+  }
+
   async update(contactId: string, data: { name?: string; notes?: string }) {
     return prisma.contact.updateMany({
       where: { id: contactId },

@@ -123,7 +123,7 @@ export class ConversationsService {
     instanceId: string;
     departmentId?: string | null;
     assignedToId?: string | null;
-    message: string;
+    message?: string;
     authorId: string;
   }) {
     // Descobre a instância e o tenant (RLS já filtra por companyId do usuário)
@@ -161,29 +161,29 @@ export class ConversationsService {
       });
     }
 
-    // Persiste a mensagem inicial
-    await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        direction: "OUTBOUND",
-        type: "TEXT",
-        content: input.message,
-        authorId: input.authorId,
-      },
-    });
+    if (input.message) {
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          direction: "OUTBOUND",
+          type: "TEXT",
+          content: input.message,
+          authorId: input.authorId,
+        },
+      });
 
-    await prisma.conversation.updateMany({
-      where: { id: conversation.id },
-      data: { lastMessageAt: new Date() },
-    });
+      await prisma.conversation.updateMany({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date() },
+      });
 
-    // Envia via provider (fire-and-forget)
-    const provider = this.providerFactory.get(instance.providerType as WhatsAppProviderType);
-    void provider
-      .sendTextMessage(instance.id, { to: input.contactPhone, text: input.message })
-      .catch((err: Error) =>
-        console.error(`[conversations] Falha ao iniciar conversa via ${instance.providerType}:`, err.message)
-      );
+      const provider = this.providerFactory.get(instance.providerType as WhatsAppProviderType);
+      void provider
+        .sendTextMessage(instance.id, { to: input.contactPhone, text: input.message })
+        .catch((err: Error) =>
+          console.error(`[conversations] Falha ao iniciar conversa via ${instance.providerType}:`, err.message)
+        );
+    }
 
     return conversation;
   }

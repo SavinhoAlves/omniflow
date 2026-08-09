@@ -96,6 +96,38 @@
             :key="conv.id"
             class="relative group"
           >
+          <!-- Dropdown trigger -->
+          <div
+            role="button"
+            class="absolute inset-x-0 top-1.5 z-10 mx-auto flex h-5 w-12 cursor-pointer items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-300 transition-all"
+            @click.stop="toggleConvMenu(conv.id)"
+          >
+            <ChevronDown :size="14" />
+          </div>
+
+          <!-- Dropdown menu (outside the card button to avoid button-in-button) -->
+          <div
+            v-if="convMenuOpen === conv.id"
+            class="absolute right-2 top-8 z-20 min-w-[160px] rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
+            @click.stop
+          >
+            <button
+              v-if="conv.status === 'OPEN'"
+              class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
+              @click="quickFinish(conv); convMenuOpen = null"
+            >
+              <CheckCircle :size="13" class="text-emerald-400" />
+              Finalizar Atendimento
+            </button>
+            <button
+              class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:bg-zinc-800"
+              @click="deleteConv(conv); convMenuOpen = null"
+            >
+              <Trash2 :size="13" />
+              Apagar conversa
+            </button>
+          </div>
+
           <button
             class="relative w-full flex items-start gap-3 rounded-xl px-3 py-3 text-left transition-all"
             :class="[
@@ -106,37 +138,6 @@
             ]"
             @click="selectConversation(conv.id)"
           >
-            <!-- Dropdown trigger -->
-            <button
-              class="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 text-zinc-600 hover:bg-zinc-700 hover:text-zinc-300 transition-all"
-              @click.stop="toggleConvMenu(conv.id)"
-            >
-              <MoreVertical :size="13" />
-            </button>
-
-            <!-- Dropdown menu -->
-            <div
-              v-if="convMenuOpen === conv.id"
-              class="absolute right-2 top-8 z-20 min-w-[160px] rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
-              @click.stop
-            >
-              <button
-                v-if="conv.status === 'OPEN'"
-                class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
-                @click="quickFinish(conv); convMenuOpen = null"
-              >
-                <CheckCircle :size="13" class="text-emerald-400" />
-                Finalizar Atendimento
-              </button>
-              <button
-                class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:bg-zinc-800"
-                @click="deleteConv(conv); convMenuOpen = null"
-              >
-                <Trash2 :size="13" />
-                Apagar conversa
-              </button>
-            </div>
-
             <div
               class="relative h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold"
               :style="{ background: avatarGradient(conv.contact.name ?? conv.contact.phoneNumber) }"
@@ -460,94 +461,191 @@
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
         @click.self="showNewConvModal = false"
       >
-        <div class="w-full max-w-md rounded-2xl border border-zinc-800/80 bg-zinc-900 p-6 shadow-2xl">
-          <div class="mb-5 flex items-start justify-between">
+        <div class="flex w-full max-w-lg flex-col rounded-2xl border border-zinc-800/80 bg-zinc-900 shadow-2xl" style="max-height: 90vh;">
+          <!-- Header -->
+          <div class="flex shrink-0 items-start justify-between p-6 pb-4">
             <div>
               <h2 class="text-base font-semibold text-white">Nova conversa</h2>
-              <p class="mt-0.5 text-xs text-zinc-500">Inicie uma conversa — a mensagem será entregue pelo canal escolhido.</p>
+              <p class="mt-0.5 text-xs text-zinc-500">Selecione um contato ou insira um número para iniciar.</p>
             </div>
             <button class="mt-0.5 text-zinc-600 transition hover:text-zinc-300" @click="showNewConvModal = false">
               <X :size="18" />
             </button>
           </div>
 
-          <div class="space-y-4">
-            <!-- Número / ID do contato -->
-            <div>
-              <label class="text-xs font-medium text-zinc-400">Número do contato</label>
-              <input
-                v-model="newConvForm.contactPhone"
-                type="text"
-                placeholder="+5521999999999"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-blue-500"
-              />
-              <p class="mt-1 text-[11px] text-zinc-600">WhatsApp: inclua o código do país (+55…). Messenger/Instagram: use o PSID/IGSID do contato.</p>
+          <div class="flex-1 overflow-y-auto px-6 pb-2">
+            <!-- Contato selecionado -->
+            <div v-if="newConvForm.contactPhone" class="mb-4 flex items-center gap-3 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-xs font-bold text-blue-300">
+                {{ initials(newConvSelectedName || newConvForm.contactPhone) }}
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium text-white">{{ newConvSelectedName || newConvForm.contactPhone }}</p>
+                <p class="text-xs text-zinc-400">{{ newConvForm.contactPhone }}</p>
+              </div>
+              <button class="text-zinc-600 hover:text-zinc-300" @click="clearConvContact">
+                <X :size="14" />
+              </button>
             </div>
 
-            <!-- Canal (instância conectada) -->
-            <div>
-              <label class="text-xs font-medium text-zinc-400">Canal</label>
-              <select
-                v-model="newConvForm.instanceId"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+            <!-- Busca / inserção de número -->
+            <div v-if="!newConvForm.contactPhone" class="mb-3">
+              <div class="relative">
+                <Search :size="14" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  v-model="contactSearch"
+                  type="text"
+                  placeholder="Buscar contato ou inserir número..."
+                  class="w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 py-2.5 pl-9 pr-4 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-blue-500"
+                  @input="onContactSearchInput"
+                />
+              </div>
+            </div>
+
+            <!-- Lista de contatos -->
+            <div v-if="!newConvForm.contactPhone" class="mb-4 space-y-1">
+              <!-- Botão: usar número digitado como contato manual -->
+              <button
+                v-if="contactSearch.trim().length >= 6 && !contactSearchResults.find(c => c.phoneNumber === contactSearch.trim())"
+                class="flex w-full items-center gap-3 rounded-xl border border-dashed border-zinc-700 px-3 py-2.5 text-left transition hover:border-blue-500/40 hover:bg-blue-500/5"
+                @click="selectManualPhone(contactSearch.trim())"
               >
-                <option value="" disabled>Selecione um canal...</option>
-                <option v-for="inst in connectedInstances" :key="inst.id" :value="inst.id">
-                  {{ inst.name }} · {{ providerLabel[inst.providerType] ?? inst.providerType }}
-                </option>
-              </select>
-              <p v-if="connectedInstances.length === 0" class="mt-1 text-[11px] text-yellow-500">
-                Nenhum canal conectado. Conecte um canal em <NuxtLink to="/whatsapp" class="underline">Canais</NuxtLink>.
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-zinc-400">
+                  <Plus :size="14" />
+                </div>
+                <div>
+                  <p class="text-sm text-white">Usar <span class="font-mono">{{ contactSearch.trim() }}</span></p>
+                  <p class="text-xs text-zinc-500">Número não encontrado nos contatos</p>
+                </div>
+              </button>
+
+              <button
+                v-for="contact in contactSearchResults"
+                :key="contact.id"
+                class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-zinc-800"
+                @click="selectContact(contact)"
+              >
+                <div
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                  :style="{ background: avatarGradient(contact.name ?? contact.phoneNumber) }"
+                >
+                  {{ initials(contact.name ?? contact.phoneNumber) }}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-white">{{ contact.name || contact.phoneNumber }}</p>
+                  <p class="text-xs text-zinc-500">{{ contact.phoneNumber }}</p>
+                </div>
+              </button>
+
+              <p v-if="contactSearchResults.length === 0 && contactSearch.length < 3" class="py-2 text-center text-xs text-zinc-600">
+                Digite para buscar ou insira um número com +55...
+              </p>
+              <p v-else-if="contactSearchResults.length === 0 && contactSearch.trim().length < 6" class="py-2 text-center text-xs text-zinc-600">
+                Nenhum contato encontrado.
               </p>
             </div>
 
-            <!-- Departamento -->
-            <div>
-              <label class="text-xs font-medium text-zinc-400">Departamento <span class="text-zinc-600">(opcional)</span></label>
-              <select
-                v-model="newConvForm.departmentId"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-              >
-                <option value="">Sem departamento</option>
-                <option v-for="dept in allDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
-              </select>
+            <!-- Formulário: Novo contato inline -->
+            <div v-if="showNewContactForm && !newConvForm.contactPhone" class="mb-4 rounded-xl border border-zinc-700/60 bg-zinc-800/40 p-4">
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Novo contato</p>
+              <div class="space-y-3">
+                <input
+                  v-model="newContactData.name"
+                  type="text"
+                  placeholder="Nome"
+                  class="w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none transition focus:border-blue-500"
+                />
+                <input
+                  v-model="newContactData.phoneNumber"
+                  type="text"
+                  placeholder="+5521999999999"
+                  class="w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none transition focus:border-blue-500"
+                />
+                <div class="flex gap-2">
+                  <button
+                    class="flex-1 rounded-xl border border-zinc-700 py-2 text-xs text-zinc-400 transition hover:bg-zinc-800"
+                    @click="showNewContactForm = false"
+                  >Cancelar</button>
+                  <button
+                    :disabled="savingContact || !newContactData.name.trim() || !newContactData.phoneNumber.trim()"
+                    class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2 text-xs font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
+                    @click="saveNewContact"
+                  >
+                    <LoaderCircle v-if="savingContact" :size="12" class="animate-spin" />
+                    Salvar contato
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <!-- Atendente -->
-            <div>
-              <label class="text-xs font-medium text-zinc-400">Atendente <span class="text-zinc-600">(opcional)</span></label>
-              <select
-                v-model="newConvForm.assignedToId"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-              >
-                <option value="">Não atribuído</option>
-                <option v-for="user in transferUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
-              </select>
-            </div>
+            <!-- Botão adicionar novo contato -->
+            <button
+              v-if="!showNewContactForm && !newConvForm.contactPhone"
+              class="mb-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-700 py-2.5 text-xs text-zinc-500 transition hover:border-blue-500/40 hover:text-blue-400"
+              @click="openNewContactForm"
+            >
+              <Plus :size="13" />
+              Adicionar novo contato
+            </button>
 
-            <!-- Mensagem inicial -->
-            <div>
-              <label class="text-xs font-medium text-zinc-400">Mensagem inicial</label>
-              <textarea
-                v-model="newConvForm.message"
-                rows="3"
-                placeholder="Olá! Como posso ajudar?"
-                class="mt-1.5 w-full resize-none rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-blue-500"
-              />
-            </div>
+            <!-- Configurações da conversa (canal, dept, atendente) -->
+            <div v-if="newConvForm.contactPhone" class="space-y-4">
+              <!-- Canal -->
+              <div>
+                <label class="text-xs font-medium text-zinc-400">Canal</label>
+                <select
+                  v-model="newConvForm.instanceId"
+                  class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+                >
+                  <option value="" disabled>Selecione um canal...</option>
+                  <option v-for="inst in connectedInstances" :key="inst.id" :value="inst.id">
+                    {{ inst.name }} · {{ providerLabel[inst.providerType] ?? inst.providerType }}
+                  </option>
+                </select>
+                <p v-if="connectedInstances.length === 0" class="mt-1 text-[11px] text-yellow-500">
+                  Nenhum canal conectado. Conecte em <NuxtLink to="/whatsapp" class="underline">Canais</NuxtLink>.
+                </p>
+              </div>
 
-            <p v-if="newConvError" class="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <!-- Departamento -->
+              <div>
+                <label class="text-xs font-medium text-zinc-400">Departamento <span class="text-zinc-600">(opcional)</span></label>
+                <select
+                  v-model="newConvForm.departmentId"
+                  class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+                >
+                  <option value="">Sem departamento</option>
+                  <option v-for="dept in allDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+                </select>
+              </div>
+
+              <!-- Atendente -->
+              <div>
+                <label class="text-xs font-medium text-zinc-400">Atendente <span class="text-zinc-600">(opcional)</span></label>
+                <select
+                  v-model="newConvForm.assignedToId"
+                  class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+                >
+                  <option value="">Não atribuído</option>
+                  <option v-for="user in transferUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer com erro e botão -->
+          <div class="shrink-0 border-t border-zinc-800 p-6 pt-4">
+            <p v-if="newConvError" class="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
               {{ newConvError }}
             </p>
-
             <button
-              :disabled="startingConv || !newConvForm.contactPhone.trim() || !newConvForm.instanceId || !newConvForm.message.trim()"
+              :disabled="startingConv || !newConvForm.contactPhone.trim() || !newConvForm.instanceId"
               class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               @click="doStartConversation"
             >
               <LoaderCircle v-if="startingConv" :size="15" class="animate-spin" />
               <Send v-else :size="14" />
-              {{ startingConv ? 'Enviando…' : 'Iniciar conversa' }}
+              {{ startingConv ? 'Iniciando…' : 'Iniciar conversa' }}
             </button>
           </div>
         </div>
@@ -629,7 +727,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, reactive } from
 import {
   Search, CheckCheck, CheckCircle, RotateCcw, Send, MessageSquare,
   ArrowRightLeft, PanelRight, X, LoaderCircle, User, Layers,
-  Plus, ChevronDown, MoreVertical, Trash2,
+  Plus, ChevronDown, Trash2,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
@@ -712,8 +810,18 @@ const newConvForm = reactive({
   instanceId: "",
   departmentId: "",
   assignedToId: "",
-  message: "",
 })
+const newConvSelectedName = ref("")
+
+// Contatos no modal
+const contactSearch = ref("")
+const contactSearchResults = ref<{ id: string; name?: string | null; phoneNumber: string }[]>([])
+const allContacts = ref<{ id: string; name?: string | null; phoneNumber: string }[]>([])
+
+// Novo contato inline
+const showNewContactForm = ref(false)
+const savingContact = ref(false)
+const newContactData = reactive({ name: "", phoneNumber: "+55" })
 const instances = ref<ChannelInstance[]>([])
 const connectedInstances = computed(() =>
   instances.value.filter((i) => i.connectionStatus === "CONNECTED")
@@ -969,18 +1077,86 @@ async function confirmTransfer() {
 
 // ── Nova conversa outbound ────────────────────────────────────────────────────
 
-function openNewConvModal() {
+async function openNewConvModal() {
   newConvForm.contactPhone = ""
   newConvForm.instanceId = connectedInstances.value[0]?.id ?? ""
   newConvForm.departmentId = ""
   newConvForm.assignedToId = ""
-  newConvForm.message = ""
   newConvError.value = ""
+  newConvSelectedName.value = ""
+  contactSearch.value = ""
+  showNewContactForm.value = false
+  Object.assign(newContactData, { name: "", phoneNumber: "+55" })
   showNewConvModal.value = true
+  // Carrega contatos para o modal
+  try {
+    allContacts.value = await api<{ id: string; name?: string | null; phoneNumber: string }[]>("/contacts")
+    contactSearchResults.value = allContacts.value.slice(0, 30)
+  } catch {
+    allContacts.value = []
+    contactSearchResults.value = []
+  }
+}
+
+function onContactSearchInput() {
+  const q = contactSearch.value.trim().toLowerCase()
+  if (!q) {
+    contactSearchResults.value = allContacts.value.slice(0, 30)
+    return
+  }
+  contactSearchResults.value = allContacts.value.filter(
+    (c) =>
+      (c.name ?? "").toLowerCase().includes(q) ||
+      c.phoneNumber.includes(q)
+  ).slice(0, 20)
+}
+
+function selectContact(c: { id: string; name?: string | null; phoneNumber: string }) {
+  newConvForm.contactPhone = c.phoneNumber
+  newConvSelectedName.value = c.name ?? c.phoneNumber
+  contactSearch.value = ""
+}
+
+function selectManualPhone(phone: string) {
+  const normalized = phone.startsWith("+") ? phone : `+55${phone.replace(/\D/g, "")}`
+  newConvForm.contactPhone = normalized
+  newConvSelectedName.value = ""
+}
+
+function clearConvContact() {
+  newConvForm.contactPhone = ""
+  newConvSelectedName.value = ""
+  contactSearch.value = ""
+  contactSearchResults.value = allContacts.value.slice(0, 30)
+}
+
+function openNewContactForm() {
+  showNewContactForm.value = true
+  newContactData.name = ""
+  newContactData.phoneNumber = contactSearch.value.trim() || "+55"
+}
+
+async function saveNewContact() {
+  if (!newContactData.name.trim() || !newContactData.phoneNumber.trim()) return
+  savingContact.value = true
+  try {
+    const contact = await api<{ id: string; name: string; phoneNumber: string }>("/contacts", {
+      method: "POST",
+      body: { name: newContactData.name.trim(), phoneNumber: newContactData.phoneNumber.trim() },
+    })
+    allContacts.value.unshift(contact)
+    contactSearchResults.value = allContacts.value.slice(0, 30)
+    selectContact(contact)
+    showNewContactForm.value = false
+  } catch (err: any) {
+    alert(err?.data?.error ?? "Não foi possível salvar o contato.")
+  } finally {
+    savingContact.value = false
+  }
 }
 
 async function doStartConversation() {
-  if (!newConvForm.contactPhone.trim() || !newConvForm.instanceId || !newConvForm.message.trim()) return
+  if (!newConvForm.contactPhone.trim() || !newConvForm.instanceId) return
   startingConv.value = true
   newConvError.value = ""
   try {
@@ -991,7 +1167,6 @@ async function doStartConversation() {
         instanceId: newConvForm.instanceId,
         departmentId: newConvForm.departmentId || null,
         assignedToId: newConvForm.assignedToId || null,
-        message: newConvForm.message.trim(),
       },
     })
     showNewConvModal.value = false

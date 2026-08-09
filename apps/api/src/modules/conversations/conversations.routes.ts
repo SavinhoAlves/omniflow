@@ -23,7 +23,7 @@ const initiateSchema = z.object({
   instanceId: z.string().uuid(),
   departmentId: z.string().uuid().nullable().optional(),
   assignedToId: z.string().uuid().nullable().optional(),
-  message: z.string().min(1).max(4096),
+  message: z.string().min(1).max(4096).optional(),
 });
 
 export async function conversationsRoutes(app: FastifyInstance) {
