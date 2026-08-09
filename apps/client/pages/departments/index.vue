@@ -136,43 +136,42 @@
         </div>
       </div>
     </Teleport>
-  </div>
 
-  <!-- Modal: confirmar exclusão de departamento -->
-  <Teleport to="body">
-    <div
-      v-if="deleteTarget"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
-      @click.self="deleteTarget = null"
-    >
-      <div class="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-        <div class="mb-1 flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
-            <Trash2 :size="20" class="text-red-400" />
+    <!-- Modal: confirmar exclusão de departamento -->
+    <Teleport to="body">
+      <div
+        v-if="deleteTarget"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+        @click.self="deleteTarget = null"
+      >
+        <div class="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
+          <div class="mb-1 flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
+              <Trash2 :size="20" class="text-red-400" />
+            </div>
+            <h2 class="text-base font-semibold text-white">Excluir departamento</h2>
           </div>
-          <h2 class="text-base font-semibold text-white">Excluir departamento</h2>
-        </div>
-        <p class="mt-3 text-sm text-zinc-400">
-          Tem certeza que deseja excluir <span class="font-semibold text-white">{{ deleteTarget.name }}</span>? Conversas associadas perderão o departamento.
-        </p>
-        <div class="mt-5 flex gap-3">
-          <button
-            class="flex-1 rounded-xl border border-zinc-700 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800"
-            @click="deleteTarget = null"
-          >Cancelar</button>
-          <button
-            class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 py-2 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
-            :disabled="deleting"
-            @click="doDeleteDept"
-          >
-            <LoaderCircle v-if="deleting" :size="14" class="animate-spin" />
-            {{ deleting ? 'Excluindo…' : 'Excluir' }}
-          </button>
+          <p class="mt-3 text-sm text-zinc-400">
+            Tem certeza que deseja excluir <span class="font-semibold text-white">{{ deleteTarget.name }}</span>? Conversas associadas perderão o departamento.
+          </p>
+          <div class="mt-5 flex gap-3">
+            <button
+              class="flex-1 rounded-xl border border-zinc-700 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800"
+              @click="deleteTarget = null"
+            >Cancelar</button>
+            <button
+              class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 py-2 text-sm font-medium text-white transition hover:bg-red-500 disabled:opacity-50"
+              :disabled="deleting"
+              @click="doDeleteDept"
+            >
+              <LoaderCircle v-if="deleting" :size="14" class="animate-spin" />
+              {{ deleting ? 'Excluindo…' : 'Excluir' }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  </Teleport>
-</div>
+    </Teleport>
+  </div>
 </template>
 
 <script setup lang="ts">
