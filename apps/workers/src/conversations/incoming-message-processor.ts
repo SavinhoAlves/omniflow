@@ -1,13 +1,14 @@
 import { Worker, Job } from "bullmq";
 import { prisma, tenantStorage } from "@omnichannel/database";
 import { QUEUE_NAMES, getRedisConnectionOptions } from "../queues/queue-names";
+import { sessionManager } from "../whatsapp/session-manager";
+import { runBotFlow } from "../workflows/workflow-engine";
 
 interface IncomingMessageJob {
   instanceId: string;
   fromNumber: string;
   contactName?: string;
   text?: string;
-  // [Update 4] campos de mídia — presentes quando a mensagem não é texto
   mediaUrl?: string;
   mediaType?: "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts";
   providerMessageId?: string;
@@ -17,11 +18,8 @@ interface IncomingMessageJob {
 /**
  * Consome a fila `incoming-messages` publicada pelo Baileys (e futuramente
  * pela Meta/Evolution) e persiste Contact → Conversation → Message no banco.
- *
- * Usa `tenantStorage.run({ isPlatform: true })` para contornar o isolamento
- * de tenant na camada de aplicação — o worker é um processo interno de
- * confiança, não uma request de usuário. Em produção, a conta de DB do worker
- * deve ser diferente da da API e ter BYPASSRLS no Postgres.
+ * Se o workflow da empresa estiver habilitado, executa o bot antes de entregar
+ * a mensagem para um atendente.
  */
 export function startIncomingMessageProcessor() {
   const worker = new Worker<IncomingMessageJob>(
@@ -35,7 +33,7 @@ export function startIncomingMessageProcessor() {
       }
 
       await tenantStorage.run({ isPlatform: true }, async () => {
-        // 1. Descobre o tenant da instância (bypass de RLS pelo isPlatform)
+        // 1. Descobre o tenant da instância
         const instance = await prisma.whatsAppInstance.findFirst({
           where: { id: instanceId },
           select: { id: true, companyId: true, defaultDepartmentId: true },
@@ -48,23 +46,22 @@ export function startIncomingMessageProcessor() {
 
         const { companyId } = instance;
 
-        // 2. Upsert de contato — telefone é a chave natural do cliente
+        // 2. Upsert de contato
         const contact = await prisma.contact.upsert({
           where: { companyId_phoneNumber: { companyId, phoneNumber: fromNumber } },
-          create: {
-            companyId,
-            phoneNumber: fromNumber,
-            name: contactName || fromNumber,
-          },
+          create: { companyId, phoneNumber: fromNumber, name: contactName || fromNumber },
           update: contactName ? { name: contactName } : {},
         });
 
         // 3. Reutiliza conversa OPEN existente ou abre nova
+        let isNewConversation = false;
         let conversation = await prisma.conversation.findFirst({
           where: { companyId, contactId: contact.id, instanceId, status: "OPEN" },
+          select: { id: true, botNodeId: true, departmentId: true },
         });
 
         if (!conversation) {
+          isNewConversation = true;
           conversation = await prisma.conversation.create({
             data: {
               companyId,
@@ -73,10 +70,11 @@ export function startIncomingMessageProcessor() {
               departmentId: instance.defaultDepartmentId ?? undefined,
               lastMessageAt: new Date(),
             },
+            select: { id: true, botNodeId: true, departmentId: true },
           });
         }
 
-        // 4. Persiste a mensagem (texto ou mídia)
+        // 4. Persiste a mensagem inbound
         const msgType = text ? "TEXT"
           : mediaType === "image" ? "IMAGE"
           : mediaType === "video" ? "VIDEO"
@@ -95,11 +93,75 @@ export function startIncomingMessageProcessor() {
           },
         });
 
-        // 5. Atualiza timestamp da última mensagem na conversa
+        // 5. Atualiza timestamp
         await prisma.conversation.updateMany({
           where: { id: conversation.id, companyId },
           data: { lastMessageAt: new Date() },
         });
+
+        // 6. Executa o bot se o workflow da empresa estiver habilitado
+        const workflow = await prisma.workflow.findFirst({
+          where: { companyId, enabled: true },
+          select: { flowNodes: true, flowEdges: true },
+        });
+
+        const shouldRunBot =
+          workflow?.flowNodes != null &&
+          (isNewConversation || conversation.botNodeId != null);
+
+        if (shouldRunBot) {
+          const startNodeId = conversation.botNodeId ?? "start";
+          // Usa o texto do usuário como seleção de menu apenas quando
+          // o bot estava pausado num nó de menu (conversa existente)
+          const userTextForBot = conversation.botNodeId != null ? text : undefined;
+
+          const result = runBotFlow({
+            flowNodes: workflow!.flowNodes as any[],
+            flowEdges: (workflow!.flowEdges ?? []) as any[],
+            startNodeId,
+            userText: userTextForBot,
+          });
+
+          // Envia as mensagens do bot e persiste cada uma
+          for (const msgText of result.messages) {
+            try {
+              await sessionManager.sendText(instanceId, fromNumber, msgText);
+              await prisma.message.create({
+                data: {
+                  conversationId: conversation.id,
+                  direction: "OUTBOUND",
+                  type: "TEXT",
+                  content: msgText,
+                },
+              });
+            } catch (err: any) {
+              console.error(`[bot] Falha ao enviar mensagem:`, err.message);
+            }
+          }
+
+          // Atualiza o estado do bot na conversa
+          const convUpdate: Record<string, any> = {
+            botNodeId: result.nextBotNodeId,
+          };
+          if (result.departmentId) {
+            convUpdate.departmentId = result.departmentId;
+          }
+          if (result.endConversation) {
+            convUpdate.status = "RESOLVED";
+            convUpdate.botNodeId = null;
+          }
+
+          await prisma.conversation.updateMany({
+            where: { id: conversation.id, companyId },
+            data: convUpdate,
+          });
+
+          console.log(
+            `[bot] Conv ${conversation.id.slice(0, 8)}: ` +
+            `enviados ${result.messages.length} msg(s), ` +
+            `próximo nó=${result.nextBotNodeId ?? "fim"}`
+          );
+        }
       });
     },
     { connection: getRedisConnectionOptions(), concurrency: 20 }

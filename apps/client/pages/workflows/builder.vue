@@ -59,6 +59,7 @@
           :connection-line-style="{ stroke: '#3b82f6', strokeWidth: 2 }"
           fit-view-on-init
           class="bg-[#0d1117]"
+          @connect="onConnect"
           @node-click="onNodeClick"
           @pane-click="selectedNode = null"
         >
@@ -287,10 +288,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from "vue"
-import {
-  VueFlow, useVueFlow, Handle, Background, Controls, MiniMap,
-  type Node, type Edge,
-} from "@vue-flow/core"
+import { VueFlow, useVueFlow, Handle, type Node, type Edge, type Connection } from "@vue-flow/core"
+import { Background } from "@vue-flow/background"
+import { Controls } from "@vue-flow/controls"
+import { MiniMap } from "@vue-flow/minimap"
 import {
   ArrowLeft, Save, LoaderCircle, Play, MessageSquare, ListOrdered,
   Zap, X, Workflow,
@@ -343,7 +344,7 @@ const departments = ref<Department[]>([])
 
 // ── Vue Flow utils ────────────────────────────────────────────────────────────
 
-const { findNode, addNodes: vfAddNodes } = useVueFlow()
+const { findNode, addNodes: vfAddNodes, addEdges: vfAddEdges } = useVueFlow()
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -387,7 +388,11 @@ function removeNode(id: string) {
   if (selectedNode.value?.id === id) selectedNode.value = null
 }
 
-function onNodeClick(_: MouseEvent, node: Node) {
+function onConnect(params: Connection) {
+  vfAddEdges([{ ...params, type: "smoothstep", animated: true, style: { stroke: "#3b82f6", strokeWidth: 2 } }])
+}
+
+function onNodeClick({ node }: { node: Node; event: MouseEvent }) {
   selectedNode.value = { ...node }
 }
 
