@@ -10,7 +10,13 @@
           <div class="flex items-center gap-2">
             <h2 class="text-sm font-semibold text-white">Conversas</h2>
             <span
-              v-if="openCount > 0"
+              v-if="leadCount > 0"
+              class="min-w-[18px] rounded-full bg-amber-500 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white tabular-nums"
+            >
+              {{ leadCount }}
+            </span>
+            <span
+              v-else-if="openCount > 0"
               class="min-w-[18px] rounded-full bg-blue-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white tabular-nums"
             >
               {{ openCount }}
@@ -60,7 +66,7 @@
             v-model="filterDeptId"
             class="w-full appearance-none rounded-lg border border-zinc-800 bg-zinc-800/60 py-1.5 pl-7 pr-6 text-[11px] text-zinc-400 outline-none transition focus:border-blue-500 focus:text-zinc-200"
           >
-            <option value="">Todos os departamentos</option>
+            <option value="">Todos departamentos</option>
             <option v-for="dept in allDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
           </select>
           <ChevronDown :size="11" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600" />
@@ -99,7 +105,7 @@
           <!-- Dropdown trigger -->
           <div
             role="button"
-            class="absolute inset-x-0 top-1.5 z-10 mx-auto flex h-5 w-12 cursor-pointer items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-300 transition-all"
+            class="absolute right-2 inset-y-0 my-auto z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-300 transition-all"
             @click.stop="toggleConvMenu(conv.id)"
           >
             <ChevronDown :size="14" />
@@ -111,6 +117,14 @@
             class="absolute right-2 top-8 z-20 min-w-[160px] rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
             @click.stop
           >
+            <button
+              v-if="conv.status === 'LEAD'"
+              class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-amber-300 hover:bg-zinc-800"
+              @click="selectConversation(conv.id); convMenuOpen = null; beginConversation()"
+            >
+              <Play :size="13" class="text-amber-400" />
+              Iniciar Atendimento
+            </button>
             <button
               v-if="conv.status === 'OPEN'"
               class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
@@ -144,7 +158,11 @@
             >
               {{ initials(conv.contact.name ?? conv.contact.phoneNumber) }}
               <span
-                v-if="conv.status === 'OPEN'"
+                v-if="conv.status === 'LEAD'"
+                class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-amber-400"
+              />
+              <span
+                v-else-if="conv.status === 'OPEN'"
                 class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-emerald-400"
               />
             </div>
@@ -200,7 +218,7 @@
             </p>
             <span
               class="shrink-0 h-1.5 w-1.5 rounded-full"
-              :class="activeConversation.status === 'OPEN' ? 'bg-emerald-400' : 'bg-zinc-600'"
+              :class="activeConversation.status === 'OPEN' ? 'bg-emerald-400' : activeConversation.status === 'LEAD' ? 'bg-amber-400' : 'bg-zinc-600'"
             />
           </div>
           <p class="text-[11px] text-zinc-500 truncate leading-none mt-0.5">
@@ -256,7 +274,23 @@
           <!-- Inbound -->
           <div v-else-if="msg.direction === 'INBOUND'" class="flex justify-start">
             <div class="max-w-[68%] min-w-0 rounded-2xl rounded-bl-md bg-zinc-800/80 px-4 py-2.5">
-              <p class="text-sm text-zinc-100 whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
+              <template v-if="msg.type === 'IMAGE' && msg.mediaUrl">
+                <img :src="msg.mediaUrl" class="max-w-full rounded-lg" loading="lazy" />
+              </template>
+              <template v-else-if="msg.type === 'AUDIO' && msg.mediaUrl">
+                <audio :src="msg.mediaUrl" controls class="w-full max-w-[220px]" />
+              </template>
+              <template v-else-if="msg.type === 'VIDEO' && msg.mediaUrl">
+                <video :src="msg.mediaUrl" controls class="max-w-full rounded-lg" />
+              </template>
+              <template v-else-if="msg.mediaUrl">
+                <a :href="msg.mediaUrl" target="_blank" class="flex items-center gap-2 text-sm text-blue-300 underline">
+                  <Paperclip :size="13" />{{ msg.content || 'Arquivo' }}
+                </a>
+              </template>
+              <template v-else>
+                <p class="text-sm text-zinc-100 whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
+              </template>
               <p class="mt-1 text-right text-[10px] text-zinc-600">{{ formatMessageTime(msg.createdAt) }}</p>
             </div>
           </div>
@@ -264,7 +298,23 @@
           <!-- Outbound -->
           <div v-else class="flex justify-end">
             <div class="max-w-[68%] min-w-0 rounded-2xl rounded-br-md bg-blue-600 px-4 py-2.5">
-              <p class="text-sm text-white whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
+              <template v-if="msg.type === 'IMAGE' && msg.mediaUrl">
+                <img :src="msg.mediaUrl" class="max-w-full rounded-lg" loading="lazy" />
+              </template>
+              <template v-else-if="msg.type === 'AUDIO' && msg.mediaUrl">
+                <audio :src="msg.mediaUrl" controls class="w-full max-w-[220px]" />
+              </template>
+              <template v-else-if="msg.type === 'VIDEO' && msg.mediaUrl">
+                <video :src="msg.mediaUrl" controls class="max-w-full rounded-lg" />
+              </template>
+              <template v-else-if="msg.mediaUrl">
+                <a :href="msg.mediaUrl" target="_blank" class="flex items-center gap-2 text-sm text-white/80 underline">
+                  <Paperclip :size="13" />{{ msg.content || 'Arquivo' }}
+                </a>
+              </template>
+              <template v-else>
+                <p class="text-sm text-white whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
+              </template>
               <div class="mt-1 flex items-center justify-end gap-1">
                 <p class="text-[10px] text-blue-300">{{ formatMessageTime(msg.createdAt) }}</p>
                 <CheckCheck :size="10" class="shrink-0 text-blue-300" />
@@ -277,19 +327,58 @@
 
       <!-- Input -->
       <div class="shrink-0 border-t border-zinc-800/80 bg-zinc-900 px-5 py-3.5">
-        <div v-if="activeConversation.status === 'RESOLVED'" class="flex items-center justify-center gap-2 py-1.5 text-xs text-zinc-600">
+        <div v-if="activeConversation.status === 'LEAD'" class="flex flex-col items-center gap-3 py-2">
+          <p class="text-xs text-zinc-500">Este lead ainda não foi iniciado.</p>
+          <button
+            class="flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-400 disabled:opacity-50"
+            :disabled="beginningConv"
+            @click="beginConversation"
+          >
+            <LoaderCircle v-if="beginningConv" :size="14" class="animate-spin" />
+            <Play v-else :size="14" />
+            {{ beginningConv ? 'Iniciando…' : 'Iniciar Atendimento' }}
+          </button>
+        </div>
+        <div v-else-if="activeConversation.status === 'RESOLVED'" class="flex items-center justify-center gap-2 py-1.5 text-xs text-zinc-600">
           Atendimento finalizado —
           <button class="text-blue-500 transition hover:text-blue-400" @click="changeStatus('OPEN')">Reabrir</button>
         </div>
-        <div v-else class="flex items-end gap-3">
+        <div v-else class="flex items-end gap-2">
+          <!-- File input (hidden) -->
+          <input ref="fileInputRef" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" class="hidden" @change="onFileSelected" />
+
+          <!-- Attach button -->
+          <button
+            class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
+            title="Enviar arquivo"
+            @click="fileInputRef?.click()"
+          >
+            <Paperclip :size="16" />
+          </button>
+
+          <!-- Textarea -->
           <textarea
             v-model="inputText"
             rows="1"
             placeholder="Mensagem…"
-            class="flex-1 min-h-[38px] max-h-32 resize-none overflow-y-auto rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition focus:border-blue-500/50 focus:outline-none focus:bg-zinc-800"
+            class="flex-1 min-h-[38px] max-h-32 resize-none overflow-y-hidden rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition focus:border-blue-500/50 focus:outline-none focus:bg-zinc-800"
             @keydown.enter.exact.prevent="sendMessage"
             @input="autoResize"
           />
+
+          <!-- Audio record button -->
+          <button
+            class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition"
+            :class="isRecording
+              ? 'bg-red-600 text-white animate-pulse'
+              : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'"
+            :title="isRecording ? 'Parar gravação' : 'Gravar áudio'"
+            @click="toggleRecording"
+          >
+            <Mic :size="16" />
+          </button>
+
+          <!-- Send button -->
           <button
             class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-blue-600 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
             :disabled="!inputText.trim() || sending"
@@ -350,9 +439,11 @@
           class="mt-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-medium"
           :class="activeConversation.status === 'OPEN'
             ? 'border-emerald-600/20 bg-emerald-500/10 text-emerald-400'
+            : activeConversation.status === 'LEAD'
+            ? 'border-amber-500/20 bg-amber-500/10 text-amber-400'
             : 'border-zinc-700/60 bg-zinc-800/40 text-zinc-500'"
         >
-          {{ activeConversation.status === 'OPEN' ? 'Em atendimento' : 'Finalizada' }}
+          {{ activeConversation.status === 'OPEN' ? 'Em atendimento' : activeConversation.status === 'LEAD' ? 'Lead' : 'Finalizada' }}
         </span>
       </div>
 
@@ -432,7 +523,17 @@
       <!-- Actions -->
       <div class="border-t border-zinc-800/80 p-4">
         <button
-          v-if="activeConversation.status === 'OPEN'"
+          v-if="activeConversation.status === 'LEAD'"
+          class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-2.5 text-xs font-semibold text-white transition hover:bg-amber-400 disabled:opacity-50"
+          :disabled="beginningConv"
+          @click="beginConversation"
+        >
+          <LoaderCircle v-if="beginningConv" :size="13" class="animate-spin" />
+          <Play v-else :size="13" />
+          Iniciar atendimento
+        </button>
+        <button
+          v-else-if="activeConversation.status === 'OPEN'"
           class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
           :disabled="statusChanging"
           @click="changeStatus('RESOLVED')"
@@ -727,11 +828,12 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, reactive } from
 import {
   Search, CheckCheck, CheckCircle, RotateCcw, Send, MessageSquare,
   ArrowRightLeft, PanelRight, X, LoaderCircle, User, Layers,
-  Plus, ChevronDown, Trash2,
+  Plus, ChevronDown, Trash2, Play, Paperclip, Mic,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
 definePageMeta({ layout: "chat", middleware: "auth" })
+useHead({ title: "Conversas" })
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -744,7 +846,7 @@ interface Contact {
 
 interface ConvSummary {
   id: string
-  status: "OPEN" | "RESOLVED"
+  status: "LEAD" | "OPEN" | "RESOLVED"
   lastMessageAt?: string | null
   contact: Contact
   assignedTo?: { id: string; name: string } | null
@@ -756,12 +858,15 @@ interface FullConversation extends ConvSummary {
   instance: { id: string; name: string; providerType: string; phoneNumber?: string }
 }
 
+const beginningConv = ref(false)
+
 interface Message {
   id: string
   conversationId: string
   direction: "INBOUND" | "OUTBOUND"
   type: "TEXT" | "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT" | "SYSTEM"
   content?: string | null
+  mediaUrl?: string | null
   createdAt: string
   author?: { id: string; name: string } | null
 }
@@ -780,7 +885,7 @@ const api = useApi()
 
 const search = ref("")
 const filterDeptId = ref("")
-const activeTab = ref<"ALL" | "MINE" | "RESOLVED">("ALL")
+const activeTab = ref<"LEADS" | "ALL" | "MINE" | "RESOLVED">("LEADS")
 const conversations = ref<ConvSummary[]>([])
 const listLoading = ref(true)
 const activeConversationId = ref<string | null>(null)
@@ -830,8 +935,18 @@ const connectedInstances = computed(() =>
 // Conversation dropdown menu
 const convMenuOpen = ref<string | null>(null)
 
+// Media upload
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const uploadingMedia = ref(false)
+
+// Audio recording
+const isRecording = ref(false)
+let mediaRecorder: MediaRecorder | null = null
+let audioChunks: Blob[] = []
+
 const TABS = [
-  { label: "Todas", value: "ALL" as const },
+  { label: "Leads", value: "LEADS" as const },
+  { label: "Abertas", value: "ALL" as const },
   { label: "Minhas", value: "MINE" as const },
   { label: "Resolvidas", value: "RESOLVED" as const },
 ]
@@ -849,6 +964,7 @@ const providerLabel: Record<string, string> = {
 // ── Computed ─────────────────────────────────────────────────────────────────
 
 const openCount = computed(() => conversations.value.filter((c) => c.status === "OPEN").length)
+const leadCount = computed(() => conversations.value.filter((c) => c.status === "LEAD").length)
 
 // Filtra atendentes pelo departamento selecionado no modal de transferência
 const filteredTransferUsers = computed(() => {
@@ -931,7 +1047,9 @@ async function loadConversations() {
   try {
     const params = new URLSearchParams()
     if (activeTab.value === "MINE") params.set("mine", "true")
-    params.set("status", activeTab.value === "RESOLVED" ? "RESOLVED" : "OPEN")
+    if (activeTab.value === "LEADS") params.set("status", "LEAD")
+    else if (activeTab.value === "RESOLVED") params.set("status", "RESOLVED")
+    else params.set("status", "OPEN")
     if (debouncedSearch.value) params.set("search", debouncedSearch.value)
     if (filterDeptId.value) params.set("departmentId", filterDeptId.value)
 
@@ -979,6 +1097,11 @@ async function pollMessages() {
   try {
     const fresh = await api<Message[]>(`/conversations/${activeConversationId.value}/messages`)
     if (fresh.length !== messages.value.length) {
+      const newOnes = fresh.slice(messages.value.length)
+      const hasNewInbound = newOnes.some(m => m.direction === "INBOUND")
+      if (hasNewInbound && activeConversation.value?.status === "OPEN") {
+        playNotificationSound()
+      }
       messages.value = fresh
       scrollToBottom()
     }
@@ -1022,6 +1145,24 @@ async function sendMessage() {
   } finally {
     sending.value = false
     scrollToBottom()
+  }
+}
+
+// ── Iniciar atendimento (Lead → Open) ─────────────────────────────────────────
+
+async function beginConversation() {
+  if (!activeConversationId.value || beginningConv.value) return
+  beginningConv.value = true
+  try {
+    await api(`/conversations/${activeConversationId.value}/begin`, { method: "POST" })
+    if (activeConversation.value) activeConversation.value.status = "OPEN"
+    await Promise.all([loadConversations(), pollMessages()])
+    // Muda para aba "Abertas" para mostrar a conversa recém-iniciada
+    activeTab.value = "ALL"
+    await loadConversations()
+  } catch {
+  } finally {
+    beginningConv.value = false
   }
 }
 
@@ -1184,7 +1325,98 @@ async function doStartConversation() {
 function autoResize(e: Event) {
   const el = e.target as HTMLTextAreaElement
   el.style.height = "auto"
-  el.style.height = `${Math.min(el.scrollHeight, 128)}px`
+  const newH = Math.min(el.scrollHeight, 128)
+  el.style.height = `${newH}px`
+  el.style.overflowY = el.scrollHeight > 128 ? "auto" : "hidden"
+}
+
+// ── Notification sound ────────────────────────────────────────────────────────
+
+function playNotificationSound() {
+  try {
+    const ctx = new ((window as any).AudioContext || (window as any).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = "sine"
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.4)
+    setTimeout(() => ctx.close(), 1000)
+  } catch {}
+}
+
+// ── Media upload ──────────────────────────────────────────────────────────────
+
+async function onFileSelected(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file || !activeConversationId.value) return
+  ;(e.target as HTMLInputElement).value = ""
+
+  uploadingMedia.value = true
+  try {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    const msg = await api<Message>(`/conversations/${activeConversationId.value}/media`, {
+      method: "POST",
+      body: { data: base64, mimeType: file.type, filename: file.name },
+    })
+    messages.value.push(msg)
+    scrollToBottom()
+    await loadConversations()
+  } catch (err: any) {
+    alert(err?.data?.error ?? "Falha ao enviar arquivo.")
+  } finally {
+    uploadingMedia.value = false
+  }
+}
+
+// ── Audio recording ───────────────────────────────────────────────────────────
+
+async function toggleRecording() {
+  if (isRecording.value) {
+    mediaRecorder?.stop()
+    return
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    audioChunks = []
+    mediaRecorder = new MediaRecorder(stream)
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data) }
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop())
+      isRecording.value = false
+      if (!activeConversationId.value || audioChunks.length === 0) return
+      const blob = new Blob(audioChunks, { type: "audio/webm" })
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+      try {
+        const msg = await api<Message>(`/conversations/${activeConversationId.value}/media`, {
+          method: "POST",
+          body: { data: base64, mimeType: "audio/webm", filename: `audio-${Date.now()}.webm` },
+        })
+        messages.value.push(msg)
+        scrollToBottom()
+        await loadConversations()
+      } catch {}
+    }
+    mediaRecorder.start()
+    isRecording.value = true
+  } catch {
+    alert("Permissão de microfone negada ou não disponível.")
+  }
 }
 
 // ── Conversation card dropdown ────────────────────────────────────────────────

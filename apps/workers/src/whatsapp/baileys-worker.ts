@@ -44,7 +44,8 @@ export function startBaileysWorker() {
             payload.to,
             payload.mediaUrl,
             payload.mediaType,
-            payload.caption
+            payload.caption,
+            payload.ptt ?? false
           );
 
         default: {

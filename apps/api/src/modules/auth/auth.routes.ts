@@ -80,6 +80,22 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 
+  app.get(
+    "/auth/me",
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { prisma, tenantStorage } = await import("@omnichannel/database");
+      const data = await tenantStorage.run({ companyId: auth.companyId! }, async () => {
+        const [user, company] = await Promise.all([
+          prisma.user.findFirst({ where: { id: auth.userId }, select: { id: true, name: true, email: true, role: true } }),
+          prisma.company.findFirst({ where: { id: auth.companyId! }, select: { id: true, name: true, slug: true } }),
+        ]);
+        return { ...user, companyId: auth.companyId, companyName: company?.name, companySlug: company?.slug, departmentIds: auth.departmentIds };
+      });
+      return reply.send(data);
+    }
+  );
+
   app.post(
     "/auth/logout",
     { config: { public: true } },

@@ -88,8 +88,10 @@ export class SessionManager {
     const entry: SessionEntry = { socket, status: "CONNECTING", lastEventAt: Date.now() };
     this.sessions.set(instanceId, entry);
 
-    // Watchdog: se nenhum evento chegar em 2 min com sessão CONNECTED, reconecta.
+    // Watchdog: se nenhum evento chegar em 10 min com sessão CONNECTED, reconecta.
     // Detecta o estado "zombie" onde o WebSocket pode enviar mas não recebe push.
+    // 10 min é suficiente — o keepAliveIntervalMs: 15s já mantém o socket vivo;
+    // o watchdog é apenas segurança contra zombies de longa duração.
     const startWatchdog = () => {
       if (entry.watchdogTimer) clearTimeout(entry.watchdogTimer);
       entry.watchdogTimer = setTimeout(() => {
@@ -97,7 +99,7 @@ export class SessionManager {
         const silenceSec = Math.round((Date.now() - (entry.lastEventAt ?? 0)) / 1000);
         console.warn(`[session-manager:watchdog] ${instanceId.slice(0,8)} silêncio ${silenceSec}s — forçando reconexão`);
         try { socket.end(new Error("watchdog timeout")); } catch {}
-      }, 120_000);
+      }, 600_000); // 10 minutos
     };
 
     const refreshWatchdog = () => {
@@ -119,7 +121,7 @@ export class SessionManager {
       if (connection === "open") {
         entry.status = "CONNECTED";
         entry.qrCode = undefined;
-        console.log(`[session-manager] ${instanceId.slice(0,8)} conectado — watchdog ativo (2 min)`);
+        console.log(`[session-manager] ${instanceId.slice(0,8)} conectado — watchdog ativo (10 min)`);
         startWatchdog();
       }
 
@@ -153,8 +155,8 @@ export class SessionManager {
         const jid = msg.key.remoteJid ?? "";
         console.log(`[baileys:${instanceId.slice(0,8)}] msg fromMe=${msg.key.fromMe} jid=${jid} id=${msg.key.id}`);
         if (msg.key.fromMe) continue;
-        // Aceita apenas conversas 1-a-1 com números diretos
-        if (!jid.endsWith("@s.whatsapp.net")) continue;
+        // Aceita conversas 1-a-1: @s.whatsapp.net (número direto) ou @lid (identidade de privacidade)
+        if (!jid.endsWith("@s.whatsapp.net") && !jid.endsWith("@lid")) continue;
         await publishIncomingMessage(instanceId, msg);
       }
     });
@@ -195,12 +197,39 @@ export class SessionManager {
     return { providerMessageId: result?.key.id ?? "", sentAt: new Date() };
   }
 
+  async sendListMenu(
+    instanceId: string,
+    to: string,
+    header: string,
+    options: { id: string; label: string }[]
+  ) {
+    const entry = this.requireConnected(instanceId);
+    const bare = to.replace(/^\+/, "");
+    const jid = bare.includes("@") ? bare : `${bare}@s.whatsapp.net`;
+    try {
+      await entry.socket.sendMessage(jid, {
+        text: header || "Selecione uma opção:",
+        footer: "",
+        buttonText: "Ver opções",
+        sections: [{
+          title: "Opções disponíveis",
+          rows: options.map((opt, i) => ({ title: opt.label, rowId: String(i + 1) })),
+        }],
+      } as any);
+    } catch {
+      // Contas pessoais não suportam mensagens de lista — envia como texto simples
+      const lines = options.map((o, i) => `${i + 1}. ${o.label}`).join("\n");
+      await entry.socket.sendMessage(jid, { text: `${header || "Selecione uma opção:"}\n\n${lines}` });
+    }
+  }
+
   async sendMedia(
     instanceId: string,
     to: string,
     mediaUrl: string,
     mediaType: "image" | "video" | "audio" | "document",
-    caption?: string
+    caption?: string,
+    ptt = false
   ) {
     const entry = this.requireConnected(instanceId);
     const bare = to.replace(/^\+/, "");
@@ -209,7 +238,9 @@ export class SessionManager {
     const contentKey = mediaType === "document" ? "document" : mediaType;
     const result = await entry.socket.sendMessage(jid, {
       [contentKey]: { url: mediaUrl },
-      caption,
+      caption: mediaType !== "audio" ? caption : undefined,
+      ptt: mediaType === "audio" ? ptt : undefined,
+      mimetype: mediaType === "audio" ? "audio/ogg; codecs=opus" : undefined,
     } as any);
 
     return { providerMessageId: result?.key.id ?? "", sentAt: new Date() };

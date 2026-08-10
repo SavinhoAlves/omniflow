@@ -355,6 +355,7 @@ import { UserPlus, Users, X, LoaderCircle, CheckCircle2, Copy, Check, Pencil, Us
 import { useApi } from "../../composables/useApi"
 
 definePageMeta({ middleware: "auth" })
+useHead({ title: "Usuários" })
 
 type Role = "ADMIN" | "MEMBER"
 

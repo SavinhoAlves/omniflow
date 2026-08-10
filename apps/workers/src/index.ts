@@ -7,12 +7,14 @@ try { process.loadEnvFile(); } catch {}
 async function bootstrap() {
   const { startBaileysWorker } = await import("./whatsapp/baileys-worker");
   const { startIncomingMessageProcessor } = await import("./conversations/incoming-message-processor");
+  const { startBeginConversationProcessor } = await import("./conversations/begin-conversation-processor");
   const { startMessageStatusProcessor } = await import("./conversations/message-status-processor");
   const { prisma, tenantStorage } = await import("@omnichannel/database");
   const { sessionManager } = await import("./whatsapp/session-manager");
 
   const baileysWorker = startBaileysWorker();
   const incomingProcessor = startIncomingMessageProcessor();
+  const beginConvProcessor = startBeginConversationProcessor();
   const statusProcessor = startMessageStatusProcessor();
 
   console.log("Workers iniciados: Baileys + IncomingMessageProcessor + MessageStatusProcessor");
@@ -51,7 +53,7 @@ async function bootstrap() {
 
   const shutdown = async () => {
     console.log("Encerrando workers...");
-    await Promise.all([baileysWorker.close(), incomingProcessor.close(), statusProcessor.close()]);
+    await Promise.all([baileysWorker.close(), incomingProcessor.close(), beginConvProcessor.close(), statusProcessor.close()]);
     process.exit(0);
   };
 

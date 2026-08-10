@@ -8,7 +8,8 @@
 export const QUEUE_NAMES = {
   BAILEYS_COMMANDS: "baileys-commands",
   INCOMING_MESSAGES: "incoming-messages",
-  MESSAGE_STATUS_UPDATES: "message-status-updates", // [Update 2] callbacks Meta
+  MESSAGE_STATUS_UPDATES: "message-status-updates",
+  BEGIN_CONVERSATION: "begin-conversation",
 } as const;
 
 export function getRedisConnectionOptions() {

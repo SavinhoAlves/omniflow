@@ -15,14 +15,26 @@ const incomingQueue = new Queue(QUEUE_NAMES.INCOMING_MESSAGES, {
  * última ponta.
  */
 export async function publishIncomingMessage(instanceId: string, rawMessage: any) {
+  // Extrai texto da mensagem — inclui respostas de menus interativos (lista/botão)
   const text =
     rawMessage.message?.conversation ??
     rawMessage.message?.extendedTextMessage?.text ??
+    rawMessage.message?.listResponseMessage?.singleSelectReply?.selectedRowId ??
+    rawMessage.message?.buttonsResponseMessage?.selectedButtonId ??
     undefined;
 
   const rawJid = rawMessage.key.remoteJid ?? "";
-  const bareNumber = rawJid.replace("@s.whatsapp.net", "");
-  const fromNumber = bareNumber.startsWith("+") ? bareNumber : `+${bareNumber}`;
+  let fromNumber: string;
+  if (rawJid.endsWith("@s.whatsapp.net")) {
+    const bare = rawJid.replace("@s.whatsapp.net", "");
+    fromNumber = bare.startsWith("+") ? bare : `+${bare}`;
+  } else if (rawJid.endsWith("@lid")) {
+    // LID JID: identificador de privacidade do WhatsApp multi-device.
+    // Usamos o JID completo como identificador único do contato.
+    fromNumber = rawJid;
+  } else {
+    return; // JID desconhecido
+  }
 
   await incomingQueue.add("incoming", {
     instanceId,

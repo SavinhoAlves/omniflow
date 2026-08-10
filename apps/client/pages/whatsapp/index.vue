@@ -533,6 +533,7 @@ import QRCode from "qrcode"
 import { useApi } from "../../composables/useApi"
 
 definePageMeta({ middleware: "auth" })
+useHead({ title: "WhatsApp" })
 
 const config = useRuntimeConfig()
 

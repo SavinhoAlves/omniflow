@@ -42,6 +42,7 @@ enum InstanceConnectionStatus {
 }
 
 enum ConversationStatus {
+  LEAD
   OPEN
   RESOLVED
 }

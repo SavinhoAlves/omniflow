@@ -15,12 +15,6 @@ interface IncomingMessageJob {
   receivedAt: string | Date;
 }
 
-/**
- * Consome a fila `incoming-messages` publicada pelo Baileys (e futuramente
- * pela Meta/Evolution) e persiste Contact → Conversation → Message no banco.
- * Se o workflow da empresa estiver habilitado, executa o bot antes de entregar
- * a mensagem para um atendente.
- */
 export function startIncomingMessageProcessor() {
   const worker = new Worker<IncomingMessageJob>(
     QUEUE_NAMES.INCOMING_MESSAGES,
@@ -53,7 +47,7 @@ export function startIncomingMessageProcessor() {
           update: contactName ? { name: contactName } : {},
         });
 
-        // 3. Reutiliza conversa OPEN existente ou abre nova
+        // 3. Busca conversa OPEN existente (ignora LEAD — leads ficam em fila separada)
         let isNewConversation = false;
         let conversation = await prisma.conversation.findFirst({
           where: { companyId, contactId: contact.id, instanceId, status: "OPEN" },
@@ -61,17 +55,28 @@ export function startIncomingMessageProcessor() {
         });
 
         if (!conversation) {
-          isNewConversation = true;
-          conversation = await prisma.conversation.create({
-            data: {
-              companyId,
-              contactId: contact.id,
-              instanceId,
-              departmentId: instance.defaultDepartmentId ?? undefined,
-              lastMessageAt: new Date(),
-            },
+          // Verifica se já existe uma conversa LEAD (para não criar duplicata)
+          const existingLead = await prisma.conversation.findFirst({
+            where: { companyId, contactId: contact.id, instanceId, status: "LEAD" as any },
             select: { id: true, botNodeId: true, departmentId: true },
           });
+
+          if (existingLead) {
+            conversation = existingLead;
+          } else {
+            isNewConversation = true;
+            conversation = await prisma.conversation.create({
+              data: {
+                companyId,
+                contactId: contact.id,
+                instanceId,
+                departmentId: instance.defaultDepartmentId ?? undefined,
+                status: "LEAD" as any,
+                lastMessageAt: new Date(),
+              },
+              select: { id: true, botNodeId: true, departmentId: true },
+            });
+          }
         }
 
         // 4. Deduplicação: ignora mensagem já processada
@@ -111,9 +116,20 @@ export function startIncomingMessageProcessor() {
           data: { lastMessageAt: new Date() },
         });
 
-        console.log(`[incoming-processor] Mensagem de ${fromNumber} → conv ${conversation.id.slice(0, 8)} (nova=${isNewConversation})`);
+        // 7. Recarrega status atual da conversa (pode ter mudado para OPEN via "Iniciar Atendimento")
+        const freshConv = await prisma.conversation.findFirst({
+          where: { id: conversation.id },
+          select: { status: true, botNodeId: true },
+        });
 
-        // 7. Executa o bot se o workflow da empresa estiver habilitado
+        console.log(`[incoming-processor] Mensagem de ${fromNumber} → conv ${conversation.id.slice(0, 8)} (nova=${isNewConversation}, status=${freshConv?.status})`);
+
+        // 8. Bot só roda em conversas OPEN (não em LEAD)
+        if (freshConv?.status !== "OPEN") {
+          console.log(`[incoming-processor] Conversa em status ${freshConv?.status} — bot não executado.`);
+          return;
+        }
+
         const workflow = await prisma.workflow.findFirst({
           where: { companyId, enabled: true },
           select: { flowNodes: true, flowEdges: true },
@@ -121,65 +137,77 @@ export function startIncomingMessageProcessor() {
 
         if (!workflow) {
           console.log(`[incoming-processor] Nenhum workflow ativo para empresa ${companyId.slice(0, 8)} — bot não executado.`);
+          return;
         }
 
         const shouldRunBot =
-          workflow?.flowNodes != null &&
-          (isNewConversation || conversation.botNodeId != null);
+          workflow.flowNodes != null &&
+          (isNewConversation || freshConv?.botNodeId != null);
 
-        if (shouldRunBot) {
-          const startNodeId = conversation.botNodeId ?? "start";
-          // Usa o texto do usuário como seleção de menu apenas quando
-          // o bot estava pausado num nó de menu (conversa existente)
-          const userTextForBot = conversation.botNodeId != null ? text : undefined;
+        if (!shouldRunBot) return;
 
-          const result = runBotFlow({
-            flowNodes: workflow!.flowNodes as any[],
-            flowEdges: (workflow!.flowEdges ?? []) as any[],
-            startNodeId,
-            userText: userTextForBot,
-          });
+        const startNodeId = freshConv?.botNodeId ?? "start";
+        const userTextForBot = freshConv?.botNodeId != null ? text : undefined;
 
-          // Envia as mensagens do bot e persiste cada uma
-          for (const msgText of result.messages) {
-            try {
-              await sessionManager.sendText(instanceId, fromNumber, msgText);
-              await prisma.message.create({
-                data: {
-                  conversationId: conversation.id,
-                  direction: "OUTBOUND",
-                  type: "TEXT",
-                  content: msgText,
-                },
-              });
-            } catch (err: any) {
-              console.error(`[bot] Falha ao enviar mensagem:`, err.message);
+        const result = runBotFlow({
+          flowNodes: workflow.flowNodes as any[],
+          flowEdges: (workflow.flowEdges ?? []) as any[],
+          startNodeId,
+          userText: userTextForBot,
+          variables: { nome: contact.name ?? fromNumber, telefone: fromNumber },
+        });
+
+        for (const botMsg of result.messages) {
+          if (botMsg.isDelay) {
+            await new Promise((r) => setTimeout(r, botMsg.delayMs));
+            continue;
+          }
+
+          if (botMsg.delayMs > 0) {
+            await new Promise((r) => setTimeout(r, botMsg.delayMs));
+          }
+
+          try {
+            if (botMsg.isMenu && botMsg.menuOptions?.length) {
+              await sessionManager.sendListMenu(instanceId, fromNumber, botMsg.text, botMsg.menuOptions);
+            } else {
+              await sessionManager.sendText(instanceId, fromNumber, botMsg.text);
             }
-          }
 
-          // Atualiza o estado do bot na conversa
-          const convUpdate: Record<string, any> = {
-            botNodeId: result.nextBotNodeId,
-          };
-          if (result.departmentId) {
-            convUpdate.departmentId = result.departmentId;
+            await prisma.message.create({
+              data: {
+                conversationId: conversation.id,
+                direction: "OUTBOUND",
+                type: "TEXT",
+                content: botMsg.text,
+              },
+            });
+          } catch (err: any) {
+            console.error(`[bot] Falha ao enviar mensagem:`, err.message);
           }
-          if (result.endConversation) {
-            convUpdate.status = "RESOLVED";
-            convUpdate.botNodeId = null;
-          }
-
-          await prisma.conversation.updateMany({
-            where: { id: conversation.id, companyId },
-            data: convUpdate,
-          });
-
-          console.log(
-            `[bot] Conv ${conversation.id.slice(0, 8)}: ` +
-            `enviados ${result.messages.length} msg(s), ` +
-            `próximo nó=${result.nextBotNodeId ?? "fim"}`
-          );
         }
+
+        const convUpdate: Record<string, any> = {
+          botNodeId: result.nextBotNodeId,
+        };
+        if (result.departmentId) {
+          convUpdate.departmentId = result.departmentId;
+        }
+        if (result.endConversation) {
+          convUpdate.status = "RESOLVED";
+          convUpdate.botNodeId = null;
+        }
+
+        await prisma.conversation.updateMany({
+          where: { id: conversation.id, companyId },
+          data: convUpdate,
+        });
+
+        console.log(
+          `[bot] Conv ${conversation.id.slice(0, 8)}: ` +
+          `enviados ${result.messages.length} msg(s), ` +
+          `próximo nó=${result.nextBotNodeId ?? "fim"}`
+        );
       });
     },
     { connection: getRedisConnectionOptions(), concurrency: 20 }

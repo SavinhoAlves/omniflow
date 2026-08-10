@@ -1,6 +1,6 @@
 import { tenantStorage } from "@omnichannel/database";
 import { FastifyRequest, FastifyReply } from "fastify";
-import { verifyAccessToken, CustomJwtPayload } from "../shared/jwt";
+import { verifyAccessToken, CustomJwtPayload, TenantJwtPayload } from "../shared/jwt";
 
 /**
  * Dados de autenticação/autorização já resolvidos, disponíveis em
@@ -9,10 +9,12 @@ import { verifyAccessToken, CustomJwtPayload } from "../shared/jwt";
  */
 export interface RequestAuth {
   userId: string;
+  name: string;
   companyId?: string; // ausente para usuários da plataforma (Super Admin)
   role: string;
   type: "platform" | "tenant";
   permissions: string[];
+  departmentIds: string[];
 }
 
 declare module "fastify" {
@@ -48,9 +50,11 @@ export async function tenantMiddleware(request: FastifyRequest, reply: FastifyRe
   if (decoded.type === "platform") {
     request.auth = {
       userId: decoded.sub,
+      name: (decoded as any).name ?? "",
       role: decoded.role,
       type: "platform",
       permissions: [],
+      departmentIds: [],
     };
     return;
   }
@@ -60,12 +64,15 @@ export async function tenantMiddleware(request: FastifyRequest, reply: FastifyRe
     return;
   }
 
+  const tenantDecoded = decoded as TenantJwtPayload;
   request.auth = {
     userId: decoded.sub,
+    name: tenantDecoded.name ?? "",
     companyId: decoded.companyId,
     role: decoded.role,
     type: "tenant",
     permissions: decoded.permissions ?? [],
+    departmentIds: tenantDecoded.departmentIds ?? [],
   };
 
   tenantStorage.enterWith({ companyId: decoded.companyId });

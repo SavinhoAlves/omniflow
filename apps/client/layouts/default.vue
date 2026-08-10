@@ -9,3 +9,19 @@
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+const authStore = useAuthStore()
+
+onMounted(async () => {
+  if (!authStore.user) {
+    await authStore.fetchMe()
+  }
+})
+
+const appName = computed(() => authStore.user?.companyName ?? 'OmniFlow')
+
+useHead({
+  titleTemplate: (title) => title ? `${title} · ${appName.value}` : appName.value,
+})
+</script>

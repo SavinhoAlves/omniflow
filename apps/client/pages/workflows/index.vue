@@ -190,6 +190,7 @@ import { Plus, ArrowRight, Trash2, LoaderCircle, GitBranch } from "lucide-vue-ne
 import { useApi } from "../../composables/useApi"
 
 definePageMeta({ middleware: "auth" })
+useHead({ title: "Fluxos" })
 
 interface Department {
   id: string

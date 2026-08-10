@@ -2,6 +2,8 @@ try { process.loadEnvFile(); } catch {}
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { prisma } from "@omnichannel/database";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { platformAuthRoutes } from "./modules/platform-auth/platform-auth.routes";
@@ -93,6 +95,27 @@ export function buildServer() {
       }
     }
   );
+
+  // Serve arquivos de mídia enviados pelos atendentes
+  const MIME_MAP: Record<string, string> = {
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
+    webp: "image/webp", mp4: "video/mp4", webm: "video/webm", oga: "audio/ogg",
+    ogg: "audio/ogg", opus: "audio/ogg", mp3: "audio/mpeg", pdf: "application/pdf",
+  };
+  app.get("/uploads/:filename", { config: { public: true } }, async (request, reply) => {
+    const { filename } = request.params as { filename: string };
+    if (!/^[\w.-]+$/.test(filename)) return reply.status(400).send();
+    const filePath = path.join(process.cwd(), "uploads", filename);
+    try {
+      const buffer = await fs.readFile(filePath);
+      const ext = filename.split(".").pop() ?? "";
+      reply.header("Content-Type", MIME_MAP[ext] ?? "application/octet-stream");
+      reply.header("Cache-Control", "public, max-age=86400");
+      return reply.send(buffer);
+    } catch {
+      return reply.status(404).send({ error: "Arquivo não encontrado" });
+    }
+  });
 
   app.register(authRoutes);
   app.register(platformAuthRoutes);

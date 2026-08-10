@@ -2,12 +2,16 @@ import { prisma } from "@omnichannel/database";
 import { WhatsAppProviderFactory, WhatsAppProviderType } from "@omnichannel/providers";
 import { decryptCredentials } from "../../shared/credentials-crypto";
 import { BaileysQueueClient } from "../whatsapp/baileys-queue.client";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
 
 export class ConversationsService {
   private providerFactory: WhatsAppProviderFactory;
+  private baileysQueue: BaileysQueueClient;
 
   constructor() {
-    const baileysQueueClient = new BaileysQueueClient();
+    this.baileysQueue = new BaileysQueueClient();
     this.providerFactory = new WhatsAppProviderFactory({
       getCredentials: async (instanceId) => {
         const inst = await prisma.whatsAppInstance.findFirstOrThrow({
@@ -17,21 +21,35 @@ export class ConversationsService {
         if (!inst.credentials) throw new Error(`Instância ${instanceId} sem credenciais`);
         return decryptCredentials(inst.credentials as string);
       },
-      baileysQueue: baileysQueueClient,
+      baileysQueue: this.baileysQueue,
     });
   }
 
   async list(filters: {
-    status?: "OPEN" | "RESOLVED";
+    status?: "OPEN" | "RESOLVED" | "LEAD";
     mine?: boolean;
     userId: string;
     departmentId?: string;
     search?: string;
+    canViewAll?: boolean;
+    userDepartmentIds?: string[];
   }) {
     const where: any = {};
 
     if (filters.status) where.status = filters.status;
-    if (filters.mine) where.assignedToId = filters.userId;
+    if (filters.mine) {
+      where.assignedToId = filters.userId;
+    } else if (!filters.canViewAll) {
+      // MEMBER: só vê conversas atribuídas a si ou não atribuídas no seu departamento
+      if (filters.userDepartmentIds?.length) {
+        where.OR = [
+          { assignedToId: filters.userId },
+          { assignedToId: null, departmentId: { in: filters.userDepartmentIds } },
+        ];
+      } else {
+        where.assignedToId = filters.userId;
+      }
+    }
     if (filters.departmentId) where.departmentId = filters.departmentId;
     if (filters.search) {
       where.contact = {
@@ -192,32 +210,107 @@ export class ConversationsService {
     conversationId: string,
     data: { assignedToId?: string | null; departmentId?: string | null },
   ) {
+    // Ao transferir para um atendente específico enquanto OPEN → vai para os Leads dele
+    const convData: any = { assignedToId: data.assignedToId, departmentId: data.departmentId };
+    if (data.assignedToId) {
+      const current = await prisma.conversation.findFirst({
+        where: { id: conversationId }, select: { status: true },
+      });
+      if ((current?.status as string) === "OPEN") convData.status = "LEAD";
+    }
+
+    const systemMsg =
+      data.departmentId !== undefined && data.assignedToId === undefined
+        ? "Departamento alterado."
+        : data.assignedToId
+          ? "Conversa transferida para um atendente."
+          : "Atribuição removida.";
+
     await Promise.all([
-      prisma.conversation.updateMany({
-        where: { id: conversationId },
-        data: {
-          assignedToId: data.assignedToId,
-          departmentId: data.departmentId,
-        },
-      }),
+      prisma.conversation.updateMany({ where: { id: conversationId }, data: convData }),
       prisma.message.create({
-        data: {
-          conversationId,
-          direction: "OUTBOUND",
-          type: "SYSTEM",
-          content:
-            data.departmentId !== undefined && data.assignedToId === undefined
-              ? "Departamento alterado."
-              : data.assignedToId
-                ? "Conversa atribuída a um atendente."
-                : "Atribuição removida.",
-        },
+        data: { conversationId, direction: "OUTBOUND", type: "SYSTEM", content: systemMsg },
       }),
     ]);
   }
 
   async deleteConversation(conversationId: string) {
     await prisma.conversation.deleteMany({ where: { id: conversationId } });
+  }
+
+  async sendMedia(
+    conversationId: string,
+    authorId: string,
+    data: { data: string; mimeType: string; filename: string }
+  ) {
+    const conv = await prisma.conversation.findFirstOrThrow({
+      where: { id: conversationId },
+      include: {
+        contact: { select: { phoneNumber: true } },
+        instance: { select: { id: true, providerType: true } },
+      },
+    });
+
+    const ext = data.filename.split(".").pop() ?? "bin";
+    const uniqueName = `${randomUUID()}.${ext}`;
+    const uploadsDir = path.join(process.cwd(), "uploads");
+    await fs.mkdir(uploadsDir, { recursive: true });
+    const base64 = data.data.replace(/^data:[^;]+;base64,/, "");
+    await fs.writeFile(path.join(uploadsDir, uniqueName), Buffer.from(base64, "base64"));
+
+    const apiUrl = process.env.API_URL ?? "http://localhost:3333";
+    const mediaUrl = `${apiUrl}/uploads/${uniqueName}`;
+
+    const mimeType = data.mimeType;
+    let mediaType: "IMAGE" | "VIDEO" | "AUDIO" | "DOCUMENT" = "DOCUMENT";
+    if (mimeType.startsWith("image/")) mediaType = "IMAGE";
+    else if (mimeType.startsWith("video/")) mediaType = "VIDEO";
+    else if (mimeType.startsWith("audio/")) mediaType = "AUDIO";
+
+    const [message] = await Promise.all([
+      prisma.message.create({
+        data: { conversationId, direction: "OUTBOUND", type: mediaType, mediaUrl, content: data.filename, authorId },
+        include: { author: { select: { id: true, name: true } } },
+      }),
+      prisma.conversation.updateMany({ where: { id: conversationId }, data: { lastMessageAt: new Date() } }),
+    ]);
+
+    if (conv.instance.providerType === "BAILEYS") {
+      void this.baileysQueue.enqueue(conv.instance.id, "send_media", {
+        to: conv.contact.phoneNumber,
+        mediaUrl,
+        mediaType: mediaType.toLowerCase() as "image" | "video" | "audio" | "document",
+        caption: data.filename,
+        ptt: mediaType === "AUDIO",
+      }).catch((err: Error) =>
+        console.error(`[conversations] Falha ao enviar mídia:`, err.message)
+      );
+    }
+
+    return message;
+  }
+
+  async beginConversation(conversationId: string) {
+    const conv = await prisma.conversation.findFirstOrThrow({
+      where: { id: conversationId },
+      select: { id: true, status: true },
+    });
+
+    if ((conv.status as string) !== "LEAD") {
+      throw new Error(`Conversa não está em status LEAD (atual: ${conv.status})`);
+    }
+
+    // Publica job para o worker executar o bot e mudar status para OPEN
+    const { Queue } = await import("bullmq");
+    const url = process.env.REDIS_URL ?? "redis://localhost:6379";
+    const parsed = new URL(url);
+    const queue = new Queue("begin-conversation", {
+      connection: { host: parsed.hostname, port: Number(parsed.port || 6379), password: parsed.password || undefined },
+    });
+    await queue.add("begin", { conversationId });
+    await queue.close();
+
+    return { ok: true };
   }
 
   async changeStatus(conversationId: string, status: "OPEN" | "RESOLVED") {

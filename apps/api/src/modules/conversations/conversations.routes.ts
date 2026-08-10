@@ -70,11 +70,13 @@ export async function conversationsRoutes(app: FastifyInstance) {
       };
 
       const conversations = await service.list({
-        status: (query.status as "OPEN" | "RESOLVED") || undefined,
+        status: (query.status as "OPEN" | "RESOLVED" | "LEAD") || undefined,
         mine: query.mine === "true",
         userId: auth.userId,
         departmentId: query.departmentId,
         search: query.search,
+        canViewAll: auth.permissions.includes("conversations.view_all"),
+        userDepartmentIds: auth.departmentIds,
       });
 
       return reply.send(conversations);
@@ -112,6 +114,23 @@ export async function conversationsRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string };
       const { content } = sendMessageSchema.parse(request.body);
       const message = await service.sendMessage(id, auth.userId, content);
+      return reply.status(201).send(message);
+    }
+  );
+
+  // ── Envio de mídia ────────────────────────────────────────────────────────────
+
+  app.post(
+    "/conversations/:id/media",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params as { id: string };
+      const body = request.body as { data: string; mimeType: string; filename: string };
+      if (!body?.data || !body?.mimeType || !body?.filename) {
+        return reply.status(400).send({ error: "data, mimeType e filename são obrigatórios" });
+      }
+      const message = await service.sendMedia(id, auth.userId, body);
       return reply.status(201).send(message);
     }
   );
@@ -154,6 +173,28 @@ export async function conversationsRoutes(app: FastifyInstance) {
         entity: "conversation",
         entityId: id,
         details: { assignedToId: data.assignedToId, departmentId: data.departmentId },
+        ip: request.ip,
+      });
+      return reply.send({ ok: true });
+    }
+  );
+
+  // ── Iniciar atendimento de lead ──────────────────────────────────────────────
+
+  app.post(
+    "/conversations/:id/begin",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params as { id: string };
+      await service.beginConversation(id);
+      logActivity({
+        companyId: auth.companyId,
+        userId: auth.userId,
+        userName: auth.name,
+        action: "conversation.begun",
+        entity: "conversation",
+        entityId: id,
         ip: request.ip,
       });
       return reply.send({ ok: true });

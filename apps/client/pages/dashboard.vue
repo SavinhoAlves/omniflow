@@ -170,6 +170,7 @@ import { MessageCircle, Network, Users, Workflow, Inbox, CheckCircle2, Rocket } 
 import { useApi } from "../composables/useApi"
 
 definePageMeta({ middleware: "auth" })
+useHead({ title: "Dashboard" })
 
 const api = useApi()
 const loading = ref(true)

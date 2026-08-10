@@ -135,6 +135,26 @@
             </div>
           </template>
 
+          <template #node-timer="{ id, data }">
+            <div
+              class="flex flex-col gap-2 rounded-2xl border-2 bg-cyan-500/10 px-4 py-3 shadow-lg min-w-[180px] cursor-default transition"
+              :class="selectedNode?.id === id ? 'border-cyan-400' : 'border-cyan-600/50'"
+            >
+              <div class="flex items-center gap-2">
+                <Timer :size="13" class="text-cyan-400 shrink-0" />
+                <span class="text-xs font-semibold text-cyan-300">Timer</span>
+                <button class="ml-auto text-zinc-600 hover:text-red-400 transition" @click.stop="removeNode(id)">
+                  <X :size="11" />
+                </button>
+              </div>
+              <p class="text-[11px] text-zinc-400">
+                ⏱ {{ data.delayMs >= 1000 ? `${(data.delayMs / 1000).toFixed(1)}s` : `${data.delayMs}ms` }}
+              </p>
+              <Handle type="target" position="left" class="!bg-cyan-500 !w-3 !h-3" />
+              <Handle type="source" position="right" class="!bg-cyan-500 !w-3 !h-3" />
+            </div>
+          </template>
+
           <template #node-action="{ id, data }">
             <div
               class="flex flex-col gap-2 rounded-2xl border-2 bg-orange-500/10 px-4 py-3 shadow-lg min-w-[200px] max-w-[260px] cursor-default transition"
@@ -186,10 +206,24 @@
           <textarea
             v-model="selectedNode.data.text"
             rows="5"
-            placeholder="Olá! Como posso ajudar?"
+            placeholder="Olá, {nome}! Como posso ajudar?"
             class="mt-1.5 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-blue-500"
             @input="syncNodeData"
           />
+          <p class="mt-1.5 text-[10px] text-zinc-600">Use <code class="rounded bg-zinc-800 px-1 py-0.5 text-zinc-400">{nome}</code> ou <code class="rounded bg-zinc-800 px-1 py-0.5 text-zinc-400">{telefone}</code> para variáveis.</p>
+          <label class="mt-4 block text-xs font-medium text-zinc-400">Aguardar antes de exibir</label>
+          <div class="mt-1.5 flex items-center gap-2">
+            <input
+              v-model.number="selectedNode.data.delayMs"
+              type="number"
+              min="0"
+              step="500"
+              placeholder="0"
+              class="w-24 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+              @input="syncNodeData"
+            />
+            <span class="text-xs text-zinc-500">ms (ex: 1500 = 1,5s)</span>
+          </div>
         </template>
 
         <!-- Menu node editor -->
@@ -198,10 +232,24 @@
           <textarea
             v-model="selectedNode.data.text"
             rows="3"
-            placeholder="Escolha uma opção:"
+            placeholder="Como posso te ajudar, {nome}?"
             class="mt-1.5 w-full resize-none rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-blue-500"
             @input="syncNodeData"
           />
+          <p class="mt-1.5 text-[10px] text-zinc-600">Use <code class="rounded bg-zinc-800 px-1 py-0.5 text-zinc-400">{nome}</code> para o nome do contato.</p>
+          <label class="mt-3 block text-xs font-medium text-zinc-400">Aguardar antes de exibir</label>
+          <div class="mt-1.5 flex items-center gap-2">
+            <input
+              v-model.number="selectedNode.data.delayMs"
+              type="number"
+              min="0"
+              step="500"
+              placeholder="0"
+              class="w-24 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+              @input="syncNodeData"
+            />
+            <span class="text-xs text-zinc-500">ms</span>
+          </div>
           <div class="mt-4">
             <div class="mb-2 flex items-center justify-between">
               <label class="text-xs font-medium text-zinc-400">Opções</label>
@@ -262,6 +310,24 @@
           </template>
         </template>
 
+        <!-- Timer node editor -->
+        <template v-else-if="selectedNode.type === 'timer'">
+          <label class="text-xs font-medium text-zinc-400">Tempo de espera</label>
+          <div class="mt-1.5 flex items-center gap-2">
+            <input
+              v-model.number="selectedNode.data.delayMs"
+              type="number"
+              min="100"
+              step="500"
+              placeholder="2000"
+              class="w-28 rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
+              @input="syncNodeData"
+            />
+            <span class="text-xs text-zinc-500">ms</span>
+          </div>
+          <p class="mt-1.5 text-[10px] text-zinc-600">O bot aguarda este tempo antes de continuar para o próximo nó.</p>
+        </template>
+
         <!-- Start node — no editable props -->
         <template v-else-if="selectedNode.type === 'start'">
           <p class="text-xs text-zinc-500">O nó de início é o ponto de entrada do fluxo. Conecte-o ao primeiro passo do atendimento.</p>
@@ -294,11 +360,12 @@ import { Controls } from "@vue-flow/controls"
 import { MiniMap } from "@vue-flow/minimap"
 import {
   ArrowLeft, Save, LoaderCircle, Play, MessageSquare, ListOrdered,
-  Zap, X, Workflow,
+  Zap, X, Workflow, Timer,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
 definePageMeta({ layout: "chat", middleware: "auth" })
+useHead({ title: "Editor de Fluxo" })
 
 const api = useApi()
 
@@ -322,6 +389,12 @@ const NODE_TYPES_DEF = [
     label: "Ação",
     icon: Zap,
     btnClass: "border-orange-600/40 text-orange-400 hover:bg-orange-600/10",
+  },
+  {
+    type: "timer",
+    label: "Timer",
+    icon: Timer,
+    btnClass: "border-cyan-600/40 text-cyan-400 hover:bg-cyan-600/10",
   },
 ]
 
@@ -358,6 +431,7 @@ function miniMapColor(node: Node) {
     message: "#3b82f6",
     menu:    "#8b5cf6",
     action:  "#f97316",
+    timer:   "#06b6d4",
   }
   return map[node.type ?? ""] ?? "#4b5563"
 }
@@ -376,6 +450,7 @@ function addNode(type: string) {
     message: { text: "" },
     menu:    { text: "", options: [{ id: uid(), label: "Opção 1" }] },
     action:  { actionType: "set_department", departmentId: "" },
+    timer:   { delayMs: 2000 },
     start:   {},
   }
 

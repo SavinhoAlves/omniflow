@@ -169,6 +169,7 @@ import {
 import { useApi } from "~/composables/useApi"
 
 definePageMeta({ layout: "default", middleware: "auth" })
+useHead({ title: "Logs" })
 
 const api = useApi()
 

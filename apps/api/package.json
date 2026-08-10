@@ -8,8 +8,8 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@omnichannel/database": "*",
-    "@omnichannel/providers": "*",
+    "@omnichannel/database": "workspace:*",
+    "@omnichannel/providers": "workspace:*",
     "bullmq": "^5.13.2",
     "@fastify/cookie": "^9.4.0",
     "@fastify/cors": "^9.0.1",

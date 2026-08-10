@@ -180,6 +180,7 @@ import { Plus, Network, Users, Pencil, Trash2, X, LoaderCircle } from "lucide-vu
 import { useApi } from "../../composables/useApi"
 
 definePageMeta({ middleware: "auth" })
+useHead({ title: "Departamentos" })
 
 interface Department {
   id: string

@@ -6,6 +6,7 @@ interface FlowNode {
     options?: Array<{ id: string; label: string }>;
     actionType?: "set_department" | "end";
     departmentId?: string;
+    delayMs?: number;
   };
 }
 
@@ -16,8 +17,17 @@ interface FlowEdge {
   target: string;
 }
 
+// Mensagem rica: pode ser texto simples, menu interativo ou marcador de atraso
+export interface BotMessage {
+  text: string;
+  delayMs: number;
+  isMenu: boolean;
+  isDelay?: boolean;
+  menuOptions?: { id: string; label: string }[];
+}
+
 export interface BotResult {
-  messages: string[];
+  messages: BotMessage[];
   nextBotNodeId: string | null;
   departmentId?: string;
   endConversation?: boolean;
@@ -26,28 +36,27 @@ export interface BotResult {
 /**
  * Executa o fluxo de bot a partir de um nó inicial.
  *
- * - `startNodeId`: "start" para nova conversa, ou o ID do nó de menu
- *   onde o bot estava pausado esperando input do usuário.
- * - `userText`: texto enviado pelo usuário. Usado apenas para resolver
- *   a seleção quando `startNodeId` aponta para um nó de menu.
- *
- * Retorna os textos a enviar e o próximo estado do bot:
- * - `nextBotNodeId = null` → bot terminou (humano assume ou conversa encerrada)
- * - `nextBotNodeId = <id>` → bot pausado num menu, aguardando resposta
+ * `variables` é um dicionário de substituição para placeholders {nome}, {telefone} etc.
  */
 export function runBotFlow(params: {
   flowNodes: FlowNode[];
   flowEdges: FlowEdge[];
   startNodeId: string;
   userText?: string;
+  variables?: Record<string, string>;
 }): BotResult {
-  const { flowNodes, flowEdges, startNodeId, userText } = params;
+  const { flowNodes, flowEdges, startNodeId, userText, variables = {} } = params;
 
   const nodeMap = new Map(flowNodes.map((n) => [n.id, n] as [string, FlowNode]));
 
-  const messages: string[] = [];
+  const messages: BotMessage[] = [];
   let departmentId: string | undefined;
   let endConversation = false;
+
+  // Substitui {variavel} pelo valor correspondente no dicionário
+  function interpolate(text: string): string {
+    return text.replace(/\{(\w+)\}/g, (_, key) => variables[key] ?? `{${key}}`);
+  }
 
   function nextNodeId(fromId: string, handleId?: string | null): string | undefined {
     const edge = flowEdges.find(
@@ -58,7 +67,7 @@ export function runBotFlow(params: {
 
   let currentId: string | undefined = startNodeId;
   let iterations = 0;
-  const MAX_ITER = 50; // guarda contra loops infinitos no fluxo
+  const MAX_ITER = 50;
 
   while (currentId && iterations++ < MAX_ITER) {
     const node = nodeMap.get(currentId);
@@ -71,8 +80,13 @@ export function runBotFlow(params: {
       }
 
       case "message": {
-        if (node.data.text?.trim()) {
-          messages.push(node.data.text.trim());
+        const raw = node.data.text?.trim() ?? "";
+        if (raw) {
+          messages.push({
+            text: interpolate(raw),
+            delayMs: node.data.delayMs ?? 0,
+            isMenu: false,
+          });
         }
         currentId = nextNodeId(node.id);
         break;
@@ -81,8 +95,6 @@ export function runBotFlow(params: {
       case "menu": {
         const options = (node.data.options ?? []).filter((o) => o.label?.trim());
 
-        // Se chegamos NESTE nó como ponto de entrada E há texto do usuário,
-        // interpretamos como seleção do menu.
         if (userText != null && currentId === startNodeId) {
           const trimmed = userText.trim();
           const numChoice = parseInt(trimmed, 10);
@@ -101,15 +113,24 @@ export function runBotFlow(params: {
           if (chosen) {
             currentId = nextNodeId(node.id, chosen.id);
           } else {
-            // Seleção inválida — reenvia o menu
-            messages.push(buildMenuText(node));
+            // Seleção inválida — reenvia o menu como interativo
+            messages.push(buildMenuMessage(node, options));
             return { messages, nextBotNodeId: node.id };
           }
         } else {
           // Primeira vez que chegamos ao menu — envia e pausa
-          messages.push(buildMenuText(node));
+          messages.push(buildMenuMessage(node, options));
           return { messages, nextBotNodeId: node.id };
         }
+        break;
+      }
+
+      case "timer": {
+        const delayMs = node.data.delayMs ?? 0;
+        if (delayMs > 0) {
+          messages.push({ text: "", delayMs, isMenu: false, isDelay: true });
+        }
+        currentId = nextNodeId(node.id);
         break;
       }
 
@@ -133,9 +154,15 @@ export function runBotFlow(params: {
   return { messages, nextBotNodeId: null, departmentId, endConversation };
 }
 
-function buildMenuText(node: FlowNode): string {
+function buildMenuMessage(node: FlowNode, options: { id: string; label: string }[]): BotMessage {
   const header = node.data.text?.trim() ?? "";
-  const validOptions = (node.data.options ?? []).filter((o) => o.label?.trim());
-  const lines = validOptions.map((o, i) => `${i + 1}. ${o.label}`);
-  return header ? `${header}\n\n${lines.join("\n")}` : lines.join("\n");
+  // Fallback em texto puro (caso Baileys não suporte lista)
+  const lines = options.map((o, i) => `${i + 1}. ${o.label}`);
+  const text = header ? `${header}\n\n${lines.join("\n")}` : lines.join("\n");
+  return {
+    text,
+    delayMs: node.data.delayMs ?? 0,
+    isMenu: true,
+    menuOptions: options,
+  };
 }
