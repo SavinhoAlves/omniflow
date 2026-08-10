@@ -79,7 +79,7 @@ export function runBotFlow(params: {
       }
 
       case "menu": {
-        const options = node.data.options ?? [];
+        const options = (node.data.options ?? []).filter((o) => o.label?.trim());
 
         // Se chegamos NESTE nó como ponto de entrada E há texto do usuário,
         // interpretamos como seleção do menu.
@@ -135,6 +135,7 @@ export function runBotFlow(params: {
 
 function buildMenuText(node: FlowNode): string {
   const header = node.data.text?.trim() ?? "";
-  const lines = (node.data.options ?? []).map((o, i) => `${i + 1}. ${o.label}`);
+  const validOptions = (node.data.options ?? []).filter((o) => o.label?.trim());
+  const lines = validOptions.map((o, i) => `${i + 1}. ${o.label}`);
   return header ? `${header}\n\n${lines.join("\n")}` : lines.join("\n");
 }

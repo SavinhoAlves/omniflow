@@ -74,7 +74,19 @@ export function startIncomingMessageProcessor() {
           });
         }
 
-        // 4. Persiste a mensagem inbound
+        // 4. Deduplicação: ignora mensagem já processada
+        if (providerMessageId) {
+          const existing = await prisma.message.findFirst({
+            where: { providerMessageId },
+            select: { id: true },
+          });
+          if (existing) {
+            console.log(`[incoming-processor] Mensagem ${providerMessageId} já existe, ignorando.`);
+            return;
+          }
+        }
+
+        // 5. Persiste a mensagem inbound
         const msgType = text ? "TEXT"
           : mediaType === "image" ? "IMAGE"
           : mediaType === "video" ? "VIDEO"
@@ -93,7 +105,7 @@ export function startIncomingMessageProcessor() {
           },
         });
 
-        // 5. Atualiza timestamp
+        // 6. Atualiza timestamp
         await prisma.conversation.updateMany({
           where: { id: conversation.id, companyId },
           data: { lastMessageAt: new Date() },
@@ -101,7 +113,7 @@ export function startIncomingMessageProcessor() {
 
         console.log(`[incoming-processor] Mensagem de ${fromNumber} → conv ${conversation.id.slice(0, 8)} (nova=${isNewConversation})`);
 
-        // 6. Executa o bot se o workflow da empresa estiver habilitado
+        // 7. Executa o bot se o workflow da empresa estiver habilitado
         const workflow = await prisma.workflow.findFirst({
           where: { companyId, enabled: true },
           select: { flowNodes: true, flowEdges: true },

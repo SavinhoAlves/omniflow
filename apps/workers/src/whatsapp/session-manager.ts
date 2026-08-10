@@ -147,10 +147,11 @@ export class SessionManager {
     socket.ev.on("messages.upsert", async ({ messages, type }) => {
       refreshWatchdog();
       console.log(`[baileys:${instanceId.slice(0,8)}] messages.upsert type=${type} count=${messages.length}`);
-      if (type !== "notify") return;
+      // notify = tempo real | append = entregue enquanto offline
+      if (type !== "notify" && type !== "append") return;
       for (const msg of messages) {
         const jid = msg.key.remoteJid ?? "";
-        console.log(`[baileys:${instanceId.slice(0,8)}] msg fromMe=${msg.key.fromMe} jid=${jid}`);
+        console.log(`[baileys:${instanceId.slice(0,8)}] msg fromMe=${msg.key.fromMe} jid=${jid} id=${msg.key.id}`);
         if (msg.key.fromMe) continue;
         // Aceita apenas conversas 1-a-1 com números diretos
         if (!jid.endsWith("@s.whatsapp.net")) continue;
