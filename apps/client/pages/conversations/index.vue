@@ -575,6 +575,19 @@
           <RotateCcw :size="13" />
           Reabrir conversa
         </button>
+
+        <div class="mt-2 h-px bg-zinc-800/60" />
+
+        <button
+          class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-red-900/40 bg-red-950/20 py-2 text-[11px] font-medium text-red-500 transition hover:bg-red-950/40 disabled:opacity-50"
+          :disabled="deletingContact"
+          @click="deleteContact"
+          title="LGPD Art. 18 — direito à exclusão de dados pessoais"
+        >
+          <LoaderCircle v-if="deletingContact" :size="11" class="animate-spin" />
+          <Trash2 v-else :size="11" />
+          Apagar dados (LGPD)
+        </button>
       </div>
     </div>
 
@@ -756,6 +769,41 @@
                   <option v-for="user in transferUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
                 </select>
               </div>
+
+              <!-- Template Meta (obrigatório para Meta Cloud API) -->
+              <div v-if="isMetaInstance">
+                <label class="text-xs font-medium text-zinc-400">
+                  Template de mensagem <span class="text-red-400">*</span>
+                </label>
+                <p class="mt-0.5 text-[11px] text-zinc-600">
+                  Envio proativo via Meta exige template aprovado na Business Suite.
+                </p>
+                <div v-if="loadingTemplates" class="mt-2 flex items-center gap-2 py-2 text-xs text-zinc-500">
+                  <LoaderCircle :size="12" class="animate-spin" />
+                  Carregando templates...
+                </div>
+                <div
+                  v-else-if="templates.length === 0"
+                  class="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[11px] text-amber-400"
+                >
+                  Nenhum template aprovado encontrado. Acesse a Meta Business Suite para criar templates.
+                </div>
+                <template v-else>
+                  <select
+                    v-model="selectedTemplate"
+                    class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+                  >
+                    <option :value="null">Selecione um template...</option>
+                    <option v-for="t in templates" :key="t.id" :value="t">
+                      {{ t.name }} · {{ t.language }} ({{ t.category }})
+                    </option>
+                  </select>
+                  <div v-if="templateBodyText" class="mt-2 rounded-xl border border-zinc-700/40 bg-zinc-800/30 p-3">
+                    <p class="mb-1 text-[10px] font-medium uppercase tracking-wider text-zinc-600">Prévia do corpo</p>
+                    <p class="whitespace-pre-line text-[12px] text-zinc-300">{{ templateBodyText }}</p>
+                  </div>
+                </template>
+              </div>
             </div>
           </div>
 
@@ -765,7 +813,7 @@
               {{ newConvError }}
             </p>
             <button
-              :disabled="startingConv || !newConvForm.contactPhone.trim() || !newConvForm.instanceId"
+              :disabled="startingConv || !newConvForm.contactPhone.trim() || !newConvForm.instanceId || (isMetaInstance && !selectedTemplate)"
               class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               @click="doStartConversation"
             >
@@ -967,6 +1015,14 @@ const uploadingMedia = ref(false)
 // Send error (e.g. window closed)
 const sendError = ref("")
 
+// Templates (Meta Cloud API — proactive outbound)
+const templates = ref<any[]>([])
+const loadingTemplates = ref(false)
+const selectedTemplate = ref<any | null>(null)
+
+// LGPD delete
+const deletingContact = ref(false)
+
 // Audio recording
 const isRecording = ref(false)
 let mediaRecorder: MediaRecorder | null = null
@@ -1018,6 +1074,18 @@ const windowExpiresAt = computed(() => {
   return new Date(new Date(lastInbound.createdAt).getTime() + 24 * 60 * 60 * 1000)
 })
 
+const selectedInstance = computed(() =>
+  instances.value.find((i) => i.id === newConvForm.instanceId) ?? null
+)
+const isMetaInstance = computed(() =>
+  selectedInstance.value?.providerType === "META_CLOUD_API"
+)
+const templateBodyText = computed(() => {
+  if (!selectedTemplate.value) return null
+  const body = (selectedTemplate.value.components ?? []).find((c: any) => c.type === "BODY")
+  return body?.text ?? null
+})
+
 // ── Search debounce ───────────────────────────────────────────────────────────
 
 const debouncedSearch = ref("")
@@ -1025,6 +1093,19 @@ let searchTimer: ReturnType<typeof setTimeout>
 watch(search, (val) => {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => { debouncedSearch.value = val }, 300)
+})
+
+watch(() => newConvForm.instanceId, async (id) => {
+  selectedTemplate.value = null
+  templates.value = []
+  if (!id) return
+  const inst = instances.value.find((i) => i.id === id)
+  if (inst?.providerType !== "META_CLOUD_API") return
+  loadingTemplates.value = true
+  try {
+    templates.value = await api<any[]>(`/whatsapp/instances/${id}/templates`)
+  } catch { /* sem templates — usuário verá aviso */ }
+  loadingTemplates.value = false
 })
 
 // ── Polling ───────────────────────────────────────────────────────────────────
@@ -1277,6 +1358,8 @@ async function openNewConvModal() {
   newConvSelectedName.value = ""
   contactSearch.value = ""
   showNewContactForm.value = false
+  selectedTemplate.value = null
+  templates.value = []
   Object.assign(newContactData, { name: "", phoneNumber: "+55" })
   showNewConvModal.value = true
   // Carrega contatos para o modal
@@ -1351,22 +1434,48 @@ async function doStartConversation() {
   startingConv.value = true
   newConvError.value = ""
   try {
+    const body: Record<string, any> = {
+      contactPhone: newConvForm.contactPhone.trim(),
+      instanceId: newConvForm.instanceId,
+      departmentId: newConvForm.departmentId || null,
+      assignedToId: newConvForm.assignedToId || null,
+    }
+    if (isMetaInstance.value && selectedTemplate.value) {
+      body.templateName = selectedTemplate.value.name
+      body.languageCode = selectedTemplate.value.language
+    }
     const conversation = await api<{ id: string }>("/conversations/start", {
       method: "POST",
-      body: {
-        contactPhone: newConvForm.contactPhone.trim(),
-        instanceId: newConvForm.instanceId,
-        departmentId: newConvForm.departmentId || null,
-        assignedToId: newConvForm.assignedToId || null,
-      },
+      body,
     })
     showNewConvModal.value = false
     await loadConversations()
     await selectConversation(conversation.id)
   } catch (err: any) {
-    newConvError.value = err?.data?.message ?? "Não foi possível iniciar a conversa."
+    newConvError.value = err?.data?.error ?? err?.data?.message ?? "Não foi possível iniciar a conversa."
   } finally {
     startingConv.value = false
+  }
+}
+
+async function deleteContact() {
+  const contact = activeConversation.value?.contact
+  if (!contact) return
+  const confirmed = confirm(
+    `Apagar todos os dados de ${contact.name || contact.phoneNumber}?\n\nIsso removerá o contato e todas as conversas associadas (LGPD Art. 18). Esta ação é irreversível.`
+  )
+  if (!confirmed) return
+  deletingContact.value = true
+  try {
+    await api(`/contacts/${contact.id}`, { method: "DELETE" })
+    activeConversationId.value = null
+    activeConversation.value = null
+    messages.value = []
+    await loadConversations()
+  } catch (err: any) {
+    alert(err?.data?.error ?? "Não foi possível apagar os dados do contato.")
+  } finally {
+    deletingContact.value = false
   }
 }
 

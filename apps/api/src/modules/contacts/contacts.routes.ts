@@ -59,4 +59,15 @@ export async function contactsRoutes(app: FastifyInstance) {
       return reply.send({ ok: true });
     }
   );
+
+  // LGPD Art. 18 — direito à exclusão de dados pessoais
+  app.delete(
+    "/contacts/:id",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_CLOSE) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      await service.delete(id);
+      return reply.status(204).send();
+    }
+  );
 }

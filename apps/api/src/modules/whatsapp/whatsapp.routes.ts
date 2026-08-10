@@ -242,6 +242,22 @@ export async function whatsappRoutes(app: FastifyInstance) {
     }
   );
 
+  // ── Templates Meta ───────────────────────────────────────────────────────
+
+  app.get(
+    "/whatsapp/instances/:id/templates",
+    { preHandler: requirePermission(PERMISSIONS.WHATSAPP_VIEW_INSTANCES) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      try {
+        const templates = await service.listTemplates(id);
+        return reply.send(templates);
+      } catch (err: any) {
+        return reply.status(400).send({ error: err.message });
+      }
+    }
+  );
+
   // ── Webhooks ─────────────────────────────────────────────────────────────
 
   // [Update 3] GET — verificação de webhook Meta (desafio hub.challenge)

@@ -56,4 +56,9 @@ export class ContactsService {
       data,
     });
   }
+
+  async delete(contactId: string) {
+    // Cascata via schema: apaga conversas → mensagens → contato
+    await prisma.contact.deleteMany({ where: { id: contactId } });
+  }
 }

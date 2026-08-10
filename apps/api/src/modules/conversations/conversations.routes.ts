@@ -24,6 +24,9 @@ const initiateSchema = z.object({
   departmentId: z.string().uuid().nullable().optional(),
   assignedToId: z.string().uuid().nullable().optional(),
   message: z.string().min(1).max(4096).optional(),
+  templateName: z.string().optional(),
+  languageCode: z.string().optional(),
+  templateComponents: z.array(z.any()).optional(),
 });
 
 export async function conversationsRoutes(app: FastifyInstance) {
@@ -37,21 +40,28 @@ export async function conversationsRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const auth = request.auth!;
       const body = initiateSchema.parse(request.body);
-      const conversation = await service.startConversation({
-        ...body,
-        authorId: auth.userId,
-      });
-      logActivity({
-        companyId: auth.companyId,
-        userId: auth.userId,
-        userName: auth.name,
-        action: "conversation.started",
-        entity: "conversation",
-        entityId: conversation.id,
-        details: { contactPhone: body.contactPhone },
-        ip: request.ip,
-      });
-      return reply.status(201).send(conversation);
+      try {
+        const conversation = await service.startConversation({
+          ...body,
+          authorId: auth.userId,
+        });
+        logActivity({
+          companyId: auth.companyId,
+          userId: auth.userId,
+          userName: auth.name,
+          action: "conversation.started",
+          entity: "conversation",
+          entityId: conversation.id,
+          details: { contactPhone: body.contactPhone },
+          ip: request.ip,
+        });
+        return reply.status(201).send(conversation);
+      } catch (err: any) {
+        if (err.code === "USE_TEMPLATE") {
+          return reply.status(422).send({ error: err.message, code: "USE_TEMPLATE" });
+        }
+        throw err;
+      }
     }
   );
 

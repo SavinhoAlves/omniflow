@@ -101,6 +101,15 @@ export class WhatsAppService {
     return provider.sendTemplateMessage(instanceId, input);
   }
 
+  async listTemplates(instanceId: string): Promise<any[]> {
+    const instance = await this.getInstanceOrThrow(instanceId);
+    if (instance.providerType !== "META_CLOUD_API") {
+      throw new Error("Templates disponíveis apenas para Meta Cloud API");
+    }
+    const provider = this.providerFactory.get("META_CLOUD_API") as any;
+    return provider.listTemplates(instanceId);
+  }
+
   async disconnect(instanceId: string) {
     const instance = await prisma.whatsAppInstance.findFirstOrThrow({ where: { id: instanceId } });
     const provider = this.providerFactory.get(instance.providerType as WhatsAppProviderType);

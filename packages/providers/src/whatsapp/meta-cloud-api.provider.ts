@@ -154,6 +154,20 @@ export class MetaCloudApiProvider implements IWhatsAppProvider {
     return { providerMessageId: response.messages[0].id, sentAt: new Date() };
   }
 
+  async listTemplates(instanceId: string): Promise<any[]> {
+    const creds = await this.getCredentials(instanceId);
+    const url = `https://graph.facebook.com/${this.apiVersion}/${creds.wabaId}/message_templates?fields=id,name,status,language,category,components&limit=100&status=APPROVED`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${creds.accessToken}` },
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Meta templates error (${res.status}): ${err}`);
+    }
+    const data = (await res.json()) as { data: any[] };
+    return data.data ?? [];
+  }
+
   private async callGraphApi<T = unknown>(creds: MetaCredentials, body: unknown): Promise<T> {
     const url = `https://graph.facebook.com/${this.apiVersion}/${creds.phoneNumberId}/messages`;
     const res = await fetch(url, {

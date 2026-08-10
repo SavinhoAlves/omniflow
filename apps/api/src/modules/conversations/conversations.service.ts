@@ -165,9 +165,11 @@ export class ConversationsService {
     departmentId?: string | null;
     assignedToId?: string | null;
     message?: string;
+    templateName?: string;
+    languageCode?: string;
+    templateComponents?: any[];
     authorId: string;
   }) {
-    // Descobre a instância e o tenant (RLS já filtra por companyId do usuário)
     const instance = await prisma.whatsAppInstance.findFirstOrThrow({
       where: { id: input.instanceId },
       select: { id: true, companyId: true, providerType: true, defaultDepartmentId: true },
@@ -175,7 +177,6 @@ export class ConversationsService {
 
     const { companyId } = instance;
 
-    // Upsert de contato
     const contact = await prisma.contact.upsert({
       where: { companyId_phoneNumber: { companyId, phoneNumber: input.contactPhone } },
       create: { companyId, phoneNumber: input.contactPhone, name: input.contactPhone },
@@ -184,7 +185,6 @@ export class ConversationsService {
 
     const departmentId = input.departmentId ?? instance.defaultDepartmentId ?? undefined;
 
-    // Reutiliza conversa OPEN existente com este contato nesta instância
     let conversation = await prisma.conversation.findFirst({
       where: { companyId, contactId: contact.id, instanceId: input.instanceId, status: "OPEN" },
     });
@@ -202,7 +202,43 @@ export class ConversationsService {
       });
     }
 
-    if (input.message) {
+    if (input.templateName && instance.providerType === "META_CLOUD_API") {
+      // Envio proativo via template aprovado (cumpliance Meta)
+      const provider = this.providerFactory.get("META_CLOUD_API" as WhatsAppProviderType);
+      void provider
+        .sendTemplateMessage!(instance.id, {
+          to: input.contactPhone,
+          templateName: input.templateName,
+          languageCode: input.languageCode ?? "pt_BR",
+          components: input.templateComponents ?? [],
+        })
+        .catch((err: Error) =>
+          console.error(`[conversations] Falha ao enviar template via Meta:`, err.message)
+        );
+
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          direction: "OUTBOUND",
+          type: "TEXT",
+          content: `[Template: ${input.templateName}]`,
+          authorId: input.authorId,
+        },
+      });
+      await prisma.conversation.updateMany({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date() },
+      });
+    } else if (input.message) {
+      if (instance.providerType === "META_CLOUD_API") {
+        const err: any = new Error(
+          "Meta Cloud API não permite texto livre como primeira mensagem. Selecione um template aprovado."
+        );
+        err.code = "USE_TEMPLATE";
+        err.statusCode = 422;
+        throw err;
+      }
+
       await prisma.message.create({
         data: {
           conversationId: conversation.id,
