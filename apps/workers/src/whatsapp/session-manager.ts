@@ -188,7 +188,8 @@ export class SessionManager {
 
   async sendText(instanceId: string, to: string, text: string) {
     const entry = this.requireConnected(instanceId);
-    const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
+    const bare = to.replace(/^\+/, "");
+    const jid = bare.includes("@") ? bare : `${bare}@s.whatsapp.net`;
     const result = await entry.socket.sendMessage(jid, { text });
     return { providerMessageId: result?.key.id ?? "", sentAt: new Date() };
   }
@@ -201,7 +202,8 @@ export class SessionManager {
     caption?: string
   ) {
     const entry = this.requireConnected(instanceId);
-    const jid = to.includes("@") ? to : `${to}@s.whatsapp.net`;
+    const bare = to.replace(/^\+/, "");
+    const jid = bare.includes("@") ? bare : `${bare}@s.whatsapp.net`;
 
     const contentKey = mediaType === "document" ? "document" : mediaType;
     const result = await entry.socket.sendMessage(jid, {
