@@ -9,6 +9,7 @@ async function bootstrap() {
   const { startIncomingMessageProcessor } = await import("./conversations/incoming-message-processor");
   const { startBeginConversationProcessor } = await import("./conversations/begin-conversation-processor");
   const { startMessageStatusProcessor } = await import("./conversations/message-status-processor");
+  const { startPhoneOutboundProcessor } = await import("./conversations/phone-outbound-processor");
   const { prisma, tenantStorage } = await import("@omnichannel/database");
   const { sessionManager } = await import("./whatsapp/session-manager");
 
@@ -16,8 +17,9 @@ async function bootstrap() {
   const incomingProcessor = startIncomingMessageProcessor();
   const beginConvProcessor = startBeginConversationProcessor();
   const statusProcessor = startMessageStatusProcessor();
+  const phoneOutboundProcessor = startPhoneOutboundProcessor();
 
-  console.log("Workers iniciados: Baileys + IncomingMessageProcessor + MessageStatusProcessor");
+  console.log("Workers iniciados: Baileys + IncomingMessageProcessor + PhoneOutboundProcessor + MessageStatusProcessor");
 
   // Reconecta automaticamente todas as instâncias Baileys que estavam CONNECTED
   // quando o processo morreu. As sessões ficam em memória — sem isso, cada restart
@@ -53,7 +55,7 @@ async function bootstrap() {
 
   const shutdown = async () => {
     console.log("Encerrando workers...");
-    await Promise.all([baileysWorker.close(), incomingProcessor.close(), beginConvProcessor.close(), statusProcessor.close()]);
+    await Promise.all([baileysWorker.close(), incomingProcessor.close(), beginConvProcessor.close(), statusProcessor.close(), phoneOutboundProcessor.close()]);
     process.exit(0);
   };
 

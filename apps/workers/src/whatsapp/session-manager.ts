@@ -9,6 +9,7 @@ import fs from "node:fs/promises";
 import { QUEUE_NAMES } from "../queues/queue-names";
 
 import { publishIncomingMessage } from "./publish-incoming-message";
+import { publishPhoneOutbound } from "./publish-phone-outbound";
 
 interface SessionEntry {
   socket: WASocket;
@@ -154,9 +155,13 @@ export class SessionManager {
       for (const msg of messages) {
         const jid = msg.key.remoteJid ?? "";
         console.log(`[baileys:${instanceId.slice(0,8)}] msg fromMe=${msg.key.fromMe} jid=${jid} id=${msg.key.id}`);
-        if (msg.key.fromMe) continue;
         // Aceita conversas 1-a-1: @s.whatsapp.net (número direto) ou @lid (identidade de privacidade)
         if (!jid.endsWith("@s.whatsapp.net") && !jid.endsWith("@lid")) continue;
+        if (msg.key.fromMe) {
+          // Mensagem enviada pelo celular físico — registra como OUTBOUND sem rodar bot
+          await publishPhoneOutbound(instanceId, msg);
+          continue;
+        }
         await publishIncomingMessage(instanceId, msg);
       }
     });

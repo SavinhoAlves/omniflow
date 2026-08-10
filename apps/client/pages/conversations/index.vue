@@ -343,49 +343,74 @@
           Atendimento finalizado —
           <button class="text-blue-500 transition hover:text-blue-400" @click="changeStatus('OPEN')">Reabrir</button>
         </div>
-        <div v-else class="flex items-end gap-2">
-          <!-- File input (hidden) -->
-          <input ref="fileInputRef" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" class="hidden" @change="onFileSelected" />
+        <div v-else class="space-y-2.5">
+          <!-- Aviso: janela de 24h encerrada (Meta Cloud API) -->
+          <div v-if="windowClosed" class="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-2.5">
+            <Clock :size="13" class="mt-0.5 shrink-0 text-amber-400" />
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-amber-300">Janela de 24 horas encerrada</p>
+              <p class="mt-0.5 text-[11px] leading-relaxed text-amber-500/90">
+                O WhatsApp Business só permite responder dentro de 24h após a última mensagem do contato.
+                Aguarde o contato escrever ou utilize um template aprovado.
+              </p>
+            </div>
+          </div>
 
-          <!-- Attach button -->
-          <button
-            class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
-            title="Enviar arquivo"
-            @click="fileInputRef?.click()"
-          >
-            <Paperclip :size="16" />
-          </button>
+          <!-- Erro de envio (ex.: janela detectada no servidor) -->
+          <div v-if="sendError" class="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/8 px-3.5 py-2">
+            <p class="text-[11px] text-red-300">{{ sendError }}</p>
+            <button class="ml-auto shrink-0 text-red-500 hover:text-red-300" @click="sendError = ''">
+              <X :size="12" />
+            </button>
+          </div>
 
-          <!-- Textarea -->
-          <textarea
-            v-model="inputText"
-            rows="1"
-            placeholder="Mensagem…"
-            class="flex-1 min-h-[38px] max-h-32 resize-none overflow-y-hidden rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition focus:border-blue-500/50 focus:outline-none focus:bg-zinc-800"
-            @keydown.enter.exact.prevent="sendMessage"
-            @input="autoResize"
-          />
+          <div class="flex items-end gap-2">
+            <!-- File input (hidden) -->
+            <input ref="fileInputRef" type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" class="hidden" @change="onFileSelected" />
 
-          <!-- Audio record button -->
-          <button
-            class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition"
-            :class="isRecording
-              ? 'bg-red-600 text-white animate-pulse'
-              : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'"
-            :title="isRecording ? 'Parar gravação' : 'Gravar áudio'"
-            @click="toggleRecording"
-          >
-            <Mic :size="16" />
-          </button>
+            <!-- Attach button -->
+            <button
+              class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="windowClosed || uploadingMedia"
+              title="Enviar arquivo"
+              @click="fileInputRef?.click()"
+            >
+              <Paperclip :size="16" />
+            </button>
 
-          <!-- Send button -->
-          <button
-            class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-blue-600 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="!inputText.trim() || sending"
-            @click="sendMessage"
-          >
-            <Send :size="15" class="text-white" />
-          </button>
+            <!-- Textarea -->
+            <textarea
+              v-model="inputText"
+              rows="1"
+              :disabled="windowClosed"
+              :placeholder="windowClosed ? 'Janela de 24h encerrada — aguarde o contato responder' : 'Mensagem…'"
+              class="flex-1 min-h-[38px] max-h-32 resize-none overflow-y-hidden rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition focus:border-blue-500/50 focus:outline-none focus:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              @keydown.enter.exact.prevent="sendMessage"
+              @input="autoResize"
+            />
+
+            <!-- Audio record button -->
+            <button
+              class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40"
+              :class="isRecording
+                ? 'bg-red-600 text-white animate-pulse'
+                : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'"
+              :disabled="windowClosed"
+              :title="isRecording ? 'Parar gravação' : 'Gravar áudio'"
+              @click="toggleRecording"
+            >
+              <Mic :size="16" />
+            </button>
+
+            <!-- Send button -->
+            <button
+              class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-blue-600 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+              :disabled="!inputText.trim() || sending || windowClosed"
+              @click="sendMessage"
+            >
+              <Send :size="15" class="text-white" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -828,7 +853,7 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, reactive } from
 import {
   Search, CheckCheck, CheckCircle, RotateCcw, Send, MessageSquare,
   ArrowRightLeft, PanelRight, X, LoaderCircle, User, Layers,
-  Plus, ChevronDown, Trash2, Play, Paperclip, Mic,
+  Plus, ChevronDown, Trash2, Play, Paperclip, Mic, Clock,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
@@ -939,6 +964,9 @@ const convMenuOpen = ref<string | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const uploadingMedia = ref(false)
 
+// Send error (e.g. window closed)
+const sendError = ref("")
+
 // Audio recording
 const isRecording = ref(false)
 let mediaRecorder: MediaRecorder | null = null
@@ -972,6 +1000,22 @@ const filteredTransferUsers = computed(() => {
   return transferUsers.value.filter(
     (u) => !u.departmentIds?.length || u.departmentIds.includes(transferForm.departmentId)
   )
+})
+
+// Janela de 24h (Meta Cloud API): encerra 24h após a última mensagem INBOUND do contato
+const windowClosed = computed(() => {
+  if (activeConversation.value?.instance?.providerType !== "META_CLOUD_API") return false
+  const lastInbound = [...messages.value].reverse().find((m) => m.direction === "INBOUND")
+  if (!lastInbound) return true // nunca houve resposta do contato
+  const expiry = new Date(new Date(lastInbound.createdAt).getTime() + 24 * 60 * 60 * 1000)
+  return expiry < new Date()
+})
+
+const windowExpiresAt = computed(() => {
+  if (activeConversation.value?.instance?.providerType !== "META_CLOUD_API") return null
+  const lastInbound = [...messages.value].reverse().find((m) => m.direction === "INBOUND")
+  if (!lastInbound) return null
+  return new Date(new Date(lastInbound.createdAt).getTime() + 24 * 60 * 60 * 1000)
 })
 
 // ── Search debounce ───────────────────────────────────────────────────────────
@@ -1079,6 +1123,7 @@ async function selectConversation(id: string) {
   if (activeConversationId.value === id) return
   activeConversationId.value = id
   messages.value = []
+  sendError.value = ""
   clearInterval(messagesInterval!)
 
   try {
@@ -1117,6 +1162,7 @@ function scrollToBottom(smooth = true) {
 async function sendMessage() {
   const content = inputText.value.trim()
   if (!content || sending.value || !activeConversationId.value) return
+  sendError.value = ""
   sending.value = true
   inputText.value = ""
 
@@ -1139,9 +1185,13 @@ async function sendMessage() {
     const idx = messages.value.findIndex((m) => m.id === optimistic.id)
     if (idx !== -1) messages.value.splice(idx, 1, created)
     await loadConversations()
-  } catch {
+  } catch (err: any) {
     messages.value = messages.value.filter((m) => m.id !== optimistic.id)
-    inputText.value = content
+    if (err?.data?.code === "WINDOW_CLOSED") {
+      sendError.value = err.data.error
+    } else {
+      inputText.value = content
+    }
   } finally {
     sending.value = false
     scrollToBottom()
@@ -1373,7 +1423,11 @@ async function onFileSelected(e: Event) {
     scrollToBottom()
     await loadConversations()
   } catch (err: any) {
-    alert(err?.data?.error ?? "Falha ao enviar arquivo.")
+    if (err?.data?.code === "WINDOW_CLOSED") {
+      sendError.value = err.data.error
+    } else {
+      alert(err?.data?.error ?? "Falha ao enviar arquivo.")
+    }
   } finally {
     uploadingMedia.value = false
   }
@@ -1410,7 +1464,9 @@ async function toggleRecording() {
         messages.value.push(msg)
         scrollToBottom()
         await loadConversations()
-      } catch {}
+      } catch (err: any) {
+        if (err?.data?.code === "WINDOW_CLOSED") sendError.value = err.data.error
+      }
     }
     mediaRecorder.start()
     isRecording.value = true

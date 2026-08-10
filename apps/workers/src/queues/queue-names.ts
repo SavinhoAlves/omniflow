@@ -10,6 +10,7 @@ export const QUEUE_NAMES = {
   INCOMING_MESSAGES: "incoming-messages",
   MESSAGE_STATUS_UPDATES: "message-status-updates",
   BEGIN_CONVERSATION: "begin-conversation",
+  PHONE_OUTBOUND: "phone-outbound-messages",
 } as const;
 
 export function getRedisConnectionOptions() {

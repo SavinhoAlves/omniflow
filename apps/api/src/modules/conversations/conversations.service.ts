@@ -106,6 +106,25 @@ export class ConversationsService {
     });
   }
 
+  private async assertMetaWindowOpen(conversationId: string) {
+    const lastInbound = await prisma.message.findFirst({
+      where: { conversationId, direction: "INBOUND" },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    const expiry = lastInbound
+      ? new Date(lastInbound.createdAt.getTime() + 24 * 60 * 60 * 1000)
+      : null;
+    if (!expiry || expiry < new Date()) {
+      const err: any = new Error(
+        "Janela de 24 horas encerrada. Aguarde o contato enviar uma mensagem ou utilize um template aprovado."
+      );
+      err.code = "WINDOW_CLOSED";
+      err.statusCode = 422;
+      throw err;
+    }
+  }
+
   async sendMessage(conversationId: string, authorId: string, content: string) {
     const conv = await prisma.conversation.findFirstOrThrow({
       where: { id: conversationId },
@@ -114,6 +133,10 @@ export class ConversationsService {
         instance: { select: { id: true, providerType: true } },
       },
     });
+
+    if (conv.instance.providerType === "META_CLOUD_API") {
+      await this.assertMetaWindowOpen(conversationId);
+    }
 
     const [message] = await Promise.all([
       prisma.message.create({
@@ -250,6 +273,10 @@ export class ConversationsService {
         instance: { select: { id: true, providerType: true } },
       },
     });
+
+    if (conv.instance.providerType === "META_CLOUD_API") {
+      await this.assertMetaWindowOpen(conversationId);
+    }
 
     const ext = data.filename.split(".").pop() ?? "bin";
     const uniqueName = `${randomUUID()}.${ext}`;

@@ -113,8 +113,15 @@ export async function conversationsRoutes(app: FastifyInstance) {
       const auth = request.auth!;
       const { id } = request.params as { id: string };
       const { content } = sendMessageSchema.parse(request.body);
-      const message = await service.sendMessage(id, auth.userId, content);
-      return reply.status(201).send(message);
+      try {
+        const message = await service.sendMessage(id, auth.userId, content);
+        return reply.status(201).send(message);
+      } catch (err: any) {
+        if (err.code === "WINDOW_CLOSED") {
+          return reply.status(422).send({ error: err.message, code: "WINDOW_CLOSED" });
+        }
+        throw err;
+      }
     }
   );
 
@@ -130,8 +137,15 @@ export async function conversationsRoutes(app: FastifyInstance) {
       if (!body?.data || !body?.mimeType || !body?.filename) {
         return reply.status(400).send({ error: "data, mimeType e filename são obrigatórios" });
       }
-      const message = await service.sendMedia(id, auth.userId, body);
-      return reply.status(201).send(message);
+      try {
+        const message = await service.sendMedia(id, auth.userId, body);
+        return reply.status(201).send(message);
+      } catch (err: any) {
+        if (err.code === "WINDOW_CLOSED") {
+          return reply.status(422).send({ error: err.message, code: "WINDOW_CLOSED" });
+        }
+        throw err;
+      }
     }
   );
 
