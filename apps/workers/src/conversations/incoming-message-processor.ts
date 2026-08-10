@@ -4,6 +4,13 @@ import { QUEUE_NAMES, getRedisConnectionOptions } from "../queues/queue-names";
 import { sessionManager } from "../whatsapp/session-manager";
 import { runBotFlow } from "../workflows/workflow-engine";
 
+const OPT_OUT_KEYWORDS = new Set(["SAIR", "PARAR", "STOP", "CANCELAR", "DESCADASTRAR"])
+const OPT_IN_KEYWORDS  = new Set(["VOLTAR", "START", "ATIVAR", "INICIAR"])
+
+function normalizeKeyword(text: string): string {
+  return text.trim().toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+}
+
 interface IncomingMessageJob {
   instanceId: string;
   fromNumber: string;
@@ -40,12 +47,53 @@ export function startIncomingMessageProcessor() {
 
         const { companyId } = instance;
 
-        // 2. Upsert de contato
+        // 2. Upsert de contato (inclui optOut)
         const contact = await prisma.contact.upsert({
           where: { companyId_phoneNumber: { companyId, phoneNumber: fromNumber } },
           create: { companyId, phoneNumber: fromNumber, name: contactName || fromNumber },
           update: contactName ? { name: contactName } : {},
+          // select explícito para garantir que optOut seja retornado
+          // (Prisma retorna todos os campos no upsert por padrão)
         });
+
+        // ── Opt-out / Opt-in ──────────────────────────────────────────────────
+        const keyword = normalizeKeyword(text ?? "")
+
+        if (OPT_OUT_KEYWORDS.has(keyword)) {
+          await prisma.contact.update({ where: { id: contact.id }, data: { optOut: true } });
+          // Busca ou cria conversa para poder registrar a mensagem de confirmação
+          let convId: string | null = null;
+          const anyConv = await prisma.conversation.findFirst({
+            where: { companyId, contactId: contact.id, instanceId, status: { in: ["OPEN", "LEAD"] as any } },
+            select: { id: true },
+          });
+          convId = anyConv?.id ?? null;
+          if (convId) {
+            await sessionManager.sendText(instanceId, fromNumber,
+              "Você foi descadastrado das mensagens automáticas. Para receber novamente, envie VOLTAR.");
+            await prisma.message.create({
+              data: { conversationId: convId, direction: "OUTBOUND", type: "SYSTEM",
+                content: "Contato optou por não receber mensagens automáticas (SAIR)." },
+            });
+          }
+          console.log(`[opt-out] ${fromNumber} optou por sair.`);
+          return;
+        }
+
+        const contactOptOut = await prisma.contact.findUnique({
+          where: { id: contact.id }, select: { optOut: true },
+        });
+        if (contactOptOut?.optOut) {
+          if (OPT_IN_KEYWORDS.has(keyword)) {
+            await prisma.contact.update({ where: { id: contact.id }, data: { optOut: false } });
+            console.log(`[opt-in] ${fromNumber} voltou a receber mensagens.`);
+            // continua o fluxo normalmente — bot vai executar
+          } else {
+            console.log(`[opt-out] ${fromNumber} está descadastrado — bot não executado.`);
+            return;
+          }
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         // 3. Busca conversa OPEN existente (ignora LEAD — leads ficam em fila separada)
         let isNewConversation = false;

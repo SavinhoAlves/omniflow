@@ -88,6 +88,12 @@
                 <span :class="statusTextColor[instance.connectionStatus]">{{ statusLabel[instance.connectionStatus] }}</span>
               </div>
 
+              <!-- Aviso ToS para instâncias Baileys -->
+              <div v-if="instance.providerType === 'BAILEYS'" class="mt-3 flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/8 px-2.5 py-1.5">
+                <AlertTriangle :size="11" class="shrink-0 text-amber-400" />
+                <p class="text-[10px] text-amber-400/90">Uso não-oficial — viola ToS do WhatsApp</p>
+              </div>
+
               <!-- Webhook URL para provedores baseados em webhook -->
               <div
                 v-if="webhookProviders.has(instance.providerType) && instance.connectionStatus === 'CONNECTED'"
@@ -216,6 +222,30 @@
               <p class="mt-2 text-xs text-zinc-600">{{ providerHint[form.providerType] }}</p>
             </div>
 
+            <!-- Aviso legal: Baileys -->
+            <div v-if="form.providerType === 'BAILEYS'" class="rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">
+              <div class="flex items-start gap-3">
+                <AlertTriangle :size="16" class="mt-0.5 shrink-0 text-amber-400" />
+                <div class="space-y-2">
+                  <p class="text-sm font-semibold text-amber-300">Aviso Legal — Uso Não Oficial</p>
+                  <p class="text-xs leading-relaxed text-amber-400/80">
+                    O modo QR Code usa a biblioteca <strong class="text-amber-300">Baileys</strong>, uma implementação
+                    não-oficial do protocolo WhatsApp Web. Isso viola os
+                    <strong class="text-amber-300">Termos de Serviço do WhatsApp (Seção 7)</strong> e pode resultar no
+                    <strong class="text-amber-300">banimento permanente do número</strong> sem aviso prévio.
+                  </p>
+                  <p class="text-xs text-amber-400/80">
+                    Use apenas para <strong class="text-amber-300">desenvolvimento ou testes pessoais</strong>.
+                    Para produção comercial, utilize <strong class="text-amber-300">WhatsApp Meta API</strong>.
+                  </p>
+                  <label class="mt-1 flex cursor-pointer items-start gap-2.5">
+                    <input v-model="baileysAcknowledged" type="checkbox" class="mt-0.5 h-3.5 w-3.5 accent-amber-500 cursor-pointer" />
+                    <span class="text-xs text-amber-300">Entendo os riscos e assumo total responsabilidade pelo uso desta modalidade.</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <!-- Credenciais: WhatsApp Meta Cloud API -->
             <template v-if="form.providerType === 'META_CLOUD_API'">
               <div class="space-y-3 rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4">
@@ -340,7 +370,7 @@
 
             <button
               type="submit"
-              :disabled="creating || !form.name.trim()"
+              :disabled="creating || !form.name.trim() || (form.providerType === 'BAILEYS' && !baileysAcknowledged)"
               class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <LoaderCircle v-if="creating" :size="16" class="animate-spin" />
@@ -523,11 +553,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from "vue"
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from "vue"
 import {
   Plus, MessageCircle, LoaderCircle, X, Smartphone, Globe, Server,
   RefreshCw, Plug, Eye, EyeOff, CheckCircle, AlertCircle, Timer,
-  Facebook, Instagram, PowerOff, Pencil, Trash2,
+  Facebook, Instagram, PowerOff, Pencil, Trash2, AlertTriangle,
 } from "lucide-vue-next"
 import QRCode from "qrcode"
 import { useApi } from "../../composables/useApi"
@@ -580,7 +610,7 @@ const providerLabel: Record<ProviderType, string> = {
 }
 
 const providerHint: Record<ProviderType, string> = {
-  BAILEYS:            "Conecta escaneando um QR Code, como o WhatsApp Web. Ideal para começar rápido sem aprovação da Meta.",
+  BAILEYS:            "⚠️ Não-oficial. Viola os ToS do WhatsApp e pode causar banimento do número. Use somente para testes.",
   META_CLOUD_API:     "API oficial da Meta para WhatsApp Business. Requer número verificado e aprovação.",
   EVOLUTION_API:      "Conecta a uma instância Evolution API auto-hospedada.",
   FACEBOOK_MESSENGER: "Receba e responda mensagens da sua Página do Facebook via Messenger.",
@@ -700,6 +730,7 @@ const showCreateModal = ref(false)
 const creating = ref(false)
 const createError = ref("")
 const showToken = ref(false)
+const baileysAcknowledged = ref(false)
 
 function emptyForm() {
   return {
@@ -722,8 +753,11 @@ function openCreateModal() {
   Object.assign(form, emptyForm())
   showToken.value = false
   createError.value = ""
+  baileysAcknowledged.value = false
   showCreateModal.value = true
 }
+
+watch(() => form.providerType, () => { baileysAcknowledged.value = false })
 
 async function createInstance() {
   creating.value = true

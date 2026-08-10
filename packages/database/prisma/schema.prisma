@@ -222,6 +222,7 @@ model Contact {
   name          String?
   avatarUrl     String?        @map("avatar_url")
   notes         String?
+  optOut        Boolean        @default(false) @map("opt_out")
   conversations Conversation[]
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
