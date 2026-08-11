@@ -8,22 +8,30 @@
         </p>
       </div>
 
-      <label class="flex shrink-0 items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2.5">
-        <span class="text-sm text-zinc-400">{{ workflow.enabled ? "Bot ativo" : "Bot desativado" }}</span>
-        <button
-          type="button"
+      <button
+        type="button"
+        :disabled="togglingEnabled"
+        class="flex shrink-0 items-center gap-3 rounded-xl border bg-zinc-900 px-4 py-2.5 transition disabled:opacity-60"
+        :class="workflow.enabled ? 'border-emerald-600/40' : 'border-zinc-800'"
+        @click="toggleEnabled"
+      >
+        <span class="text-sm font-medium transition"
+          :class="workflow.enabled ? 'text-emerald-400' : 'text-zinc-500'"
+        >{{ workflow.enabled ? "Bot ativo" : "Bot inativo" }}</span>
+        <span
           role="switch"
           :aria-checked="workflow.enabled"
-          class="relative h-6 w-11 rounded-full transition"
-          :class="workflow.enabled ? 'bg-blue-600' : 'bg-zinc-700'"
-          @click="workflow.enabled = !workflow.enabled"
+          class="relative h-6 w-11 rounded-full transition overflow-hidden"
+          :class="workflow.enabled ? 'bg-emerald-500' : 'bg-zinc-700'"
         >
+          <LoaderCircle v-if="togglingEnabled" :size="14" class="absolute inset-0 m-auto animate-spin text-white" />
           <span
+            v-else
             class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform"
             :class="workflow.enabled ? 'translate-x-[22px]' : 'translate-x-0.5'"
           />
-        </button>
-      </label>
+        </span>
+      </button>
     </div>
 
     <div v-if="loading" class="h-80 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900" />
@@ -262,6 +270,20 @@ async function loadData() {
 const saving = ref(false)
 const saveError = ref("")
 const savedAt = ref(false)
+const togglingEnabled = ref(false)
+
+async function toggleEnabled() {
+  workflow.enabled = !workflow.enabled
+  togglingEnabled.value = true
+  try {
+    await api("/workflows/default", { method: "PUT", body: workflow })
+  } catch (err: any) {
+    workflow.enabled = !workflow.enabled
+    saveError.value = err?.data?.error ?? "Não foi possível salvar o estado do bot."
+  } finally {
+    togglingEnabled.value = false
+  }
+}
 
 async function saveWorkflow() {
   saving.value = true
