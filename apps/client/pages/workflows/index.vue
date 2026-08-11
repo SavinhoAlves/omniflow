@@ -19,20 +19,20 @@
         :class="workflow.enabled ? 'border-emerald-600/40' : 'border-zinc-800'"
         @click="toggleEnabled"
       >
-        <span class="text-sm font-medium transition"
+        <span class="w-[5.5rem] text-sm font-medium transition"
           :class="workflow.enabled ? 'text-emerald-400' : 'text-zinc-500'"
         >{{ workflow.enabled ? "Bot ativo" : "Bot inativo" }}</span>
         <span
           role="switch"
           :aria-checked="workflow.enabled"
-          class="relative h-6 w-11 rounded-full transition overflow-hidden"
+          class="relative block h-6 w-11 rounded-full transition"
           :class="workflow.enabled ? 'bg-emerald-500' : 'bg-zinc-700'"
         >
           <LoaderCircle v-if="togglingEnabled" :size="14" class="absolute inset-0 m-auto animate-spin text-white" />
           <span
             v-else
-            class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform"
-            :class="workflow.enabled ? 'translate-x-[22px]' : 'translate-x-0.5'"
+            class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform"
+            :class="workflow.enabled ? 'translate-x-5' : 'translate-x-0'"
           />
         </span>
       </button>
