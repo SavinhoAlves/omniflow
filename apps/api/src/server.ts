@@ -19,6 +19,9 @@ import { contactsRoutes } from "./modules/contacts/contacts.routes";
 import { reportsRoutes } from "./modules/reports/reports.routes";
 import { messengerRoutes } from "./modules/messenger/messenger.routes";
 import { activityLogRoutes } from "./modules/activity-log/activity-log.routes";
+import { contractsRoutes } from "./modules/contracts/contracts.routes";
+import { installationsRoutes } from "./modules/installations/installations.routes";
+import { ticketsRoutes } from "./modules/tickets/tickets.routes";
 import { tenantMiddleware } from "./middlewares/tenant.middleware";
 
 export function buildServer() {
@@ -131,6 +134,9 @@ export function buildServer() {
   app.register(reportsRoutes);
   app.register(messengerRoutes);
   app.register(activityLogRoutes);
+  app.register(contractsRoutes);
+  app.register(installationsRoutes);
+  app.register(ticketsRoutes);
 
   return app;
 }

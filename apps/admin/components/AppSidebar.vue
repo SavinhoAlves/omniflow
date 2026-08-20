@@ -64,6 +64,7 @@ import {
   Workflow,
   Building2,
   Settings,
+  LifeBuoy,
 } from "lucide-vue-next"
 
 // Operação do dia a dia da empresa logada (tenant).
@@ -79,5 +80,6 @@ const operationMenu = [
 // Administração do SaaS em si (todas as empresas clientes).
 const platformMenu = [
   { name: "Empresas", path: "/companies", icon: Building2 },
+  { name: "Suporte", path: "/tickets", icon: LifeBuoy },
 ]
 </script>

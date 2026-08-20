@@ -47,6 +47,52 @@ enum ConversationStatus {
   RESOLVED
 }
 
+enum ContractStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum SignatureStatus {
+  PENDING
+  SIGNED_DIGITAL
+  SIGNED_PHYSICAL
+}
+
+enum InstallationStatus {
+  PENDING
+  ACTIVE
+  MAINTENANCE
+  OFFLINE
+}
+
+enum TicketType {
+  SYNC
+  INSTALLATION
+  BUG
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
 enum MessageDirection {
   INBOUND
   OUTBOUND
@@ -114,6 +160,9 @@ model Company {
   workflows         Workflow[]
   contacts          Contact[]
   conversations     Conversation[]
+  contracts         ClientContract[]
+  installations     Installation[]
+  tickets           SupportTicket[]
 
   @@map("companies")
 }
@@ -370,4 +419,69 @@ model ActivityLog {
   @@index([companyId, createdAt(sort: Desc)])
   @@index([companyId])
   @@map("activity_logs")
+}
+
+// ============================================================
+// CRM de plataforma — contratos, instalações e suporte
+// Gerenciados pelo Super Admin, não pelo tenant.
+// @@map usa snake_case; companyId é FK direta (sem auto-scope).
+// ============================================================
+
+model ClientContract {
+  id                String          @id @default(uuid())
+  companyId         String          @map("company_id")
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan              String
+  status            ContractStatus  @default(TRIAL)
+  value             Decimal?        @db.Decimal(10, 2)
+  billingCycle      BillingCycle    @default(MONTHLY) @map("billing_cycle")
+  startDate         DateTime        @map("start_date")
+  endDate           DateTime?       @map("end_date")
+  notes             String?
+  signatureStatus   SignatureStatus  @default(PENDING) @map("signature_status")
+  signedAt          DateTime?       @map("signed_at")
+  signerName        String?         @map("signer_name")
+  signatureData     String?         @db.Text @map("signature_data")
+  pdfPath           String?         @map("pdf_path")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@map("client_contracts")
+}
+
+model Installation {
+  id         String             @id @default(uuid())
+  companyId  String             @map("company_id")
+  company    Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name       String
+  location   String?
+  version    String?
+  status     InstallationStatus @default(PENDING)
+  lastSyncAt DateTime?          @map("last_sync_at")
+  notes      String?
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@map("installations")
+}
+
+model SupportTicket {
+  id          String         @id @default(uuid())
+  companyId   String         @map("company_id")
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type        TicketType     @default(OTHER)
+  priority    TicketPriority @default(MEDIUM)
+  status      TicketStatus   @default(OPEN)
+  title       String
+  description String
+  resolvedAt  DateTime?      @map("resolved_at")
+  notes       String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([status])
+  @@map("support_tickets")
 }

@@ -23,6 +23,17 @@ export async function companiesRoutes(app: FastifyInstance) {
     }
   );
 
+  app.get(
+    "/companies/:id",
+    { preHandler: requirePlatform() },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const company = await service.getById(id);
+      if (!company) return reply.status(404).send({ error: "Empresa não encontrada" });
+      return reply.send(company);
+    }
+  );
+
   app.post(
     "/companies",
     { preHandler: requirePlatform() },

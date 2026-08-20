@@ -47,11 +47,17 @@
               <th class="py-3 font-medium">Nome</th>
               <th class="py-3 font-medium">Criada em</th>
               <th class="py-3 font-medium">Status</th>
+              <th class="py-3 text-right font-medium">Resumo CRM</th>
             </tr>
           </thead>
 
           <tbody>
-            <tr v-for="company in companies" :key="company.id" class="border-b border-zinc-800 last:border-0">
+            <tr
+              v-for="company in companies"
+              :key="company.id"
+              class="cursor-pointer border-b border-zinc-800 transition hover:bg-zinc-800/40 last:border-0"
+              @click="$router.push(`/companies/${company.id}`)"
+            >
               <td class="py-4 font-medium text-white">{{ company.name }}</td>
               <td class="py-4 text-zinc-400">{{ formatDate(company.createdAt) }}</td>
               <td class="py-4">
@@ -60,6 +66,11 @@
                   :class="company.active ? 'bg-green-500/10 text-green-400' : 'bg-zinc-700/50 text-zinc-400'"
                 >
                   {{ company.active ? "Ativa" : "Inativa" }}
+                </span>
+              </td>
+              <td class="py-4 text-right text-zinc-500">
+                <span v-if="company._count" class="text-xs">
+                  {{ company._count.contracts }} contrato(s) · {{ company._count.installations }} instalação(ões) · {{ company._count.tickets }} ticket(s)
                 </span>
               </td>
             </tr>
@@ -149,6 +160,7 @@ interface Company {
   name: string
   createdAt: string
   active: boolean
+  _count?: { contracts: number; installations: number; tickets: number }
 }
 
 const api = useApi()

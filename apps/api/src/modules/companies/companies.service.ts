@@ -26,6 +26,27 @@ export class CompaniesService {
         cnpj: true,
         active: true,
         createdAt: true,
+        _count: {
+          select: { contracts: true, installations: true, tickets: true },
+        },
+      },
+    });
+  }
+
+  async getById(id: string) {
+    return prisma.company.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        cnpj: true,
+        active: true,
+        createdAt: true,
+        contracts: { orderBy: { createdAt: "desc" } },
+        installations: { orderBy: { createdAt: "desc" } },
+        tickets: { orderBy: [{ status: "asc" }, { createdAt: "desc" }] },
+        _count: { select: { users: true } },
       },
     });
   }
