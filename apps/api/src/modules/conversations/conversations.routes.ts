@@ -77,19 +77,27 @@ export async function conversationsRoutes(app: FastifyInstance) {
         mine?: string;
         departmentId?: string;
         search?: string;
+        priority?: string;
+        unreadOnly?: string;
+        cursor?: string;
+        limit?: string;
       };
 
-      const conversations = await service.list({
+      const result = await service.list({
         status: (query.status as "OPEN" | "RESOLVED" | "LEAD") || undefined,
         mine: query.mine === "true",
         userId: auth.userId,
         departmentId: query.departmentId,
         search: query.search,
+        priority: query.priority,
+        unreadOnly: query.unreadOnly === "true",
         canViewAll: auth.permissions.includes("conversations.view_all"),
         userDepartmentIds: auth.departmentIds,
+        cursor: query.cursor,
+        limit: query.limit ? Number(query.limit) : undefined,
       });
 
-      return reply.send(conversations);
+      return reply.send(result);
     }
   );
 
@@ -99,7 +107,13 @@ export async function conversationsRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const conversation = await service.get(id);
-      return reply.send(conversation);
+      const now = new Date();
+      const windowStatus = conversation.windowExpiresAt
+        ? conversation.windowExpiresAt > now ? "open" : "expired"
+        : "none";
+      // Mark as read — reset unread counter when an agent opens the conversation
+      void service.markRead(id).catch(() => {});
+      return reply.send({ ...conversation, windowStatus });
     }
   );
 
@@ -108,9 +122,15 @@ export async function conversationsRoutes(app: FastifyInstance) {
     { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const { before } = request.query as { before?: string };
-      const messages = await service.getMessages(id, before);
-      return reply.send(messages);
+      const { before, cursor, limit } = request.query as {
+        before?: string; cursor?: string; limit?: string;
+      };
+      const result = await service.getMessages(id, {
+        before,
+        cursor,
+        limit: limit ? Number(limit) : undefined,
+      });
+      return reply.send(result);
     }
   );
 
@@ -156,6 +176,102 @@ export async function conversationsRoutes(app: FastifyInstance) {
         }
         throw err;
       }
+    }
+  );
+
+  // ── Busca global de mensagens (T5.5) ─────────────────────────────────────────
+
+  app.get(
+    "/conversations/search",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    async (request, reply) => {
+      const { q, limit } = request.query as { q?: string; limit?: string };
+      if (!q || q.trim().length < 2) {
+        return reply.status(400).send({ error: "Parâmetro 'q' deve ter pelo menos 2 caracteres" });
+      }
+      const results = await service.search(q.trim(), limit ? Number(limit) : 20);
+      return reply.send(results);
+    }
+  );
+
+  // ── Ações em lote (T5.3) ─────────────────────────────────────────────────────
+
+  const bulkSchema = z.object({
+    ids: z.array(z.string().uuid()).min(1).max(100),
+  });
+
+  app.post(
+    "/conversations/bulk/assign",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_TRANSFER) },
+    async (request, reply) => {
+      const { ids } = bulkSchema.parse(request.body);
+      const { assignedToId } = request.body as { assignedToId?: string | null };
+      await service.bulkAssign(ids, assignedToId ?? null);
+      return reply.send({ ok: true, count: ids.length });
+    }
+  );
+
+  app.post(
+    "/conversations/bulk/status",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_CLOSE) },
+    async (request, reply) => {
+      const { ids } = bulkSchema.parse(request.body);
+      const { status } = z.object({ status: z.enum(["OPEN", "RESOLVED"]) }).parse(request.body);
+      await service.bulkStatus(ids, status);
+      return reply.send({ ok: true, count: ids.length });
+    }
+  );
+
+  app.post(
+    "/conversations/bulk/tag",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_TRANSFER) },
+    async (request, reply) => {
+      const { ids } = bulkSchema.parse(request.body);
+      const { tags } = z.object({ tags: z.array(z.string()) }).parse(request.body);
+      await service.bulkTag(ids, tags);
+      return reply.send({ ok: true, count: ids.length });
+    }
+  );
+
+  // ── Tags de conversa (T5.2) ──────────────────────────────────────────────────
+
+  app.patch(
+    "/conversations/:id/tags",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { tags } = z.object({ tags: z.array(z.string()) }).parse(request.body);
+      await service.updateTags(id, tags);
+      return reply.send({ ok: true });
+    }
+  );
+
+  // ── Notas internas (T3.3) ────────────────────────────────────────────────────
+
+  app.post(
+    "/conversations/:id/notes",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    async (request, reply) => {
+      const auth = request.auth!;
+      const { id } = request.params as { id: string };
+      const { content } = z.object({ content: z.string().min(1).max(4096) }).parse(request.body);
+      const note = await service.addNote(id, auth.userId, content);
+      return reply.status(201).send(note);
+    }
+  );
+
+  // ── Prioridade (T3.5) ────────────────────────────────────────────────────────
+
+  app.patch(
+    "/conversations/:id/priority",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_TRANSFER) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { priority } = z.object({
+        priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]),
+      }).parse(request.body);
+      await service.setPriority(id, priority);
+      return reply.send({ ok: true });
     }
   );
 

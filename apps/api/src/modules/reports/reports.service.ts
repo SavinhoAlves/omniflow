@@ -138,6 +138,73 @@ export class ReportsService {
       .sort((a, b) => b.total - a.total);
   }
 
+  // T9.3: Channel metrics by WhatsApp instance
+  async getChannels(period: Period) {
+    const since = getPeriodStart(period);
+
+    const [byChannel, resolvedByChannel] = await Promise.all([
+      prisma.conversation.groupBy({
+        by: ["instanceId"],
+        where: { createdAt: { gte: since }, instanceId: { not: null } },
+        _count: { _all: true },
+      }),
+      prisma.conversation.groupBy({
+        by: ["instanceId"],
+        where: { createdAt: { gte: since }, status: "RESOLVED", instanceId: { not: null } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const resolvedMap = new Map(resolvedByChannel.map((r) => [r.instanceId, r._count._all]));
+    const instanceIds = byChannel.map((g) => g.instanceId!).filter(Boolean);
+
+    const instances = await prisma.whatsAppInstance.findMany({
+      where: { id: { in: instanceIds } },
+      select: { id: true, name: true, providerType: true },
+    });
+    const instanceMap = new Map(instances.map((i) => [i.id, { name: i.name, type: i.providerType }]));
+
+    return byChannel
+      .map((g) => ({
+        instanceId:   g.instanceId!,
+        instanceName: instanceMap.get(g.instanceId!)?.name ?? "Desconhecido",
+        providerType: instanceMap.get(g.instanceId!)?.type ?? "UNKNOWN",
+        total:        g._count._all,
+        resolved:     resolvedMap.get(g.instanceId!) ?? 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }
+
+  // T9.2 enhancement: SLA compliance by priority
+  async getSlaMetrics(period: Period) {
+    const since = getPeriodStart(period);
+
+    const rows = await prisma.conversation.groupBy({
+      by: ["priority"],
+      where: { createdAt: { gte: since }, status: "RESOLVED" },
+      _count: { _all: true },
+    });
+
+    const breachedRows = await prisma.conversation.groupBy({
+      by: ["priority"],
+      where: { createdAt: { gte: since }, slaBreachedAt: { not: null } },
+      _count: { _all: true },
+    });
+
+    const breachedMap = new Map(breachedRows.map((r) => [r.priority, r._count._all]));
+
+    return rows.map((r) => {
+      const total = r._count._all;
+      const breached = breachedMap.get(r.priority) ?? 0;
+      return {
+        priority: r.priority,
+        total,
+        breached,
+        complianceRate: total > 0 ? Math.round(((total - breached) / total) * 100) : 100,
+      };
+    });
+  }
+
   async getDepartments(period: Period) {
     const since = getPeriodStart(period);
 

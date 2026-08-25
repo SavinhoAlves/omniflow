@@ -35,4 +35,18 @@ export async function reportsRoutes(app: FastifyInstance) {
     const data = await service.getDepartments(periodSchema.parse(period ?? "7d"));
     return reply.send(data);
   });
+
+  // T9.3: Channel metrics
+  app.get("/reports/channels", guard, async (request, reply) => {
+    const { period } = request.query as { period?: string };
+    const data = await service.getChannels(periodSchema.parse(period ?? "7d"));
+    return reply.send(data);
+  });
+
+  // T9.2 enhancement: SLA compliance
+  app.get("/reports/sla", guard, async (request, reply) => {
+    const { period } = request.query as { period?: string };
+    const data = await service.getSlaMetrics(periodSchema.parse(period ?? "7d"));
+    return reply.send(data);
+  });
 }

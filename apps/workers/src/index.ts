@@ -13,13 +13,33 @@ async function bootstrap() {
   const { prisma, tenantStorage } = await import("@omnichannel/database");
   const { sessionManager } = await import("./whatsapp/session-manager");
 
+  const { scheduleTemplateSyncJob, startTemplateSyncWorker } = await import("./whatsapp/template-sync-job");
+  const { scheduleRetentionJob, startRetentionWorker } = await import("./compliance/retention-job");
+  const { scheduleAutomationJobs, startAutomationWorker } = await import("./automations/automation-engine");
+  const { scheduleMessageJobs, startScheduledMessageWorker } = await import("./conversations/scheduled-message-worker");
+  const { startBroadcastWorker } = await import("./campaigns/broadcast-worker");
+
   const baileysWorker = startBaileysWorker();
   const incomingProcessor = startIncomingMessageProcessor();
   const beginConvProcessor = startBeginConversationProcessor();
   const statusProcessor = startMessageStatusProcessor();
   const phoneOutboundProcessor = startPhoneOutboundProcessor();
+  const templateSyncWorker = startTemplateSyncWorker();
+  const retentionWorker = startRetentionWorker();
+  const automationWorker = startAutomationWorker();
+  const scheduledMessageWorker = startScheduledMessageWorker();
+  const broadcastWorker = startBroadcastWorker();
 
-  console.log("Workers iniciados: Baileys + IncomingMessageProcessor + PhoneOutboundProcessor + MessageStatusProcessor");
+  // Agenda job diário de sync de templates (cron 0 3 * * *)
+  await scheduleTemplateSyncJob();
+  // Agenda job diário de retenção de dados LGPD (cron 0 2 * * *)
+  await scheduleRetentionJob();
+  // Agenda jobs de automação (idle + SLA) a cada 15 min
+  await scheduleAutomationJobs();
+  // Agenda job de mensagens agendadas a cada 1 min
+  await scheduleMessageJobs();
+
+  console.log("Workers iniciados: Baileys + IncomingMessageProcessor + PhoneOutboundProcessor + MessageStatusProcessor + TemplateSyncJob + RetentionJob + AutomationEngine + ScheduledMessages");
 
   // Reconecta automaticamente todas as instâncias Baileys que estavam CONNECTED
   // quando o processo morreu. As sessões ficam em memória — sem isso, cada restart
@@ -55,7 +75,7 @@ async function bootstrap() {
 
   const shutdown = async () => {
     console.log("Encerrando workers...");
-    await Promise.all([baileysWorker.close(), incomingProcessor.close(), beginConvProcessor.close(), statusProcessor.close(), phoneOutboundProcessor.close()]);
+    await Promise.all([baileysWorker.close(), incomingProcessor.close(), beginConvProcessor.close(), statusProcessor.close(), phoneOutboundProcessor.close(), templateSyncWorker.close(), retentionWorker.close(), automationWorker.close(), scheduledMessageWorker.close(), broadcastWorker.close()]);
     process.exit(0);
   };
 

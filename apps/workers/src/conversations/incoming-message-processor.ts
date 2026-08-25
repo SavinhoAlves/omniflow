@@ -60,8 +60,11 @@ export function startIncomingMessageProcessor() {
         const keyword = normalizeKeyword(text ?? "")
 
         if (OPT_OUT_KEYWORDS.has(keyword)) {
+          // T4.1: registra opt-out no audit log de consentimento
           await prisma.contact.update({ where: { id: contact.id }, data: { optOut: true } });
-          // Busca ou cria conversa para poder registrar a mensagem de confirmação
+          await prisma.consentLog.create({
+            data: { companyId, contactId: contact.id, event: "OPT_OUT", source: "whatsapp_keyword" },
+          });
           let convId: string | null = null;
           const anyConv = await prisma.conversation.findFirst({
             where: { companyId, contactId: contact.id, instanceId, status: { in: ["OPEN", "LEAD"] as any } },
@@ -85,7 +88,14 @@ export function startIncomingMessageProcessor() {
         });
         if (contactOptOut?.optOut) {
           if (OPT_IN_KEYWORDS.has(keyword)) {
-            await prisma.contact.update({ where: { id: contact.id }, data: { optOut: false } });
+            // T4.1: registra opt-in no audit log de consentimento
+            await prisma.contact.update({
+              where: { id: contact.id },
+              data: { optOut: false, consentGivenAt: new Date(), consentSource: "whatsapp_keyword" },
+            });
+            await prisma.consentLog.create({
+              data: { companyId, contactId: contact.id, event: "OPT_IN", source: "whatsapp_keyword" },
+            });
             console.log(`[opt-in] ${fromNumber} voltou a receber mensagens.`);
             // continua o fluxo normalmente — bot vai executar
           } else {
@@ -158,11 +168,16 @@ export function startIncomingMessageProcessor() {
           },
         });
 
-        // 6. Atualiza timestamp
-        await prisma.conversation.updateMany({
-          where: { id: conversation.id, companyId },
-          data: { lastMessageAt: new Date() },
-        });
+        // 6. Atualiza timestamp, janela de 24h e contador de não lidos
+        const windowExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await prisma.$executeRaw`
+          UPDATE conversations
+          SET last_message_at = NOW(),
+              window_expires_at = ${windowExpiresAt},
+              unread_count = unread_count + 1,
+              updated_at = NOW()
+          WHERE id = ${conversation.id} AND company_id = ${companyId}
+        `;
 
         // 7. Recarrega status atual da conversa (pode ter mudado para OPEN via "Iniciar Atendimento")
         const freshConv = await prisma.conversation.findFirst({

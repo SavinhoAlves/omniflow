@@ -15,6 +15,14 @@ import { companiesRoutes } from "./modules/companies/companies.routes";
 import { companyProfileRoutes } from "./modules/company-profile/company-profile.routes";
 import { workflowsRoutes } from "./modules/workflows/workflows.routes";
 import { conversationsRoutes } from "./modules/conversations/conversations.routes";
+import { sseRoutes } from "./modules/conversations/sse.routes";
+import { presenceRoutes } from "./modules/conversations/presence.routes";
+import { savedRepliesRoutes } from "./modules/productivity/saved-replies.routes";
+import { automationsRoutes } from "./modules/automations/automations.routes";
+import { scheduledMessagesRoutes } from "./modules/conversations/scheduled-messages.routes";
+import { campaignsRoutes } from "./modules/campaigns/campaigns.routes";
+import { aiRoutes } from "./modules/ai/ai.routes";
+import { billingRoutes } from "./modules/billing/billing.routes";
 import { contactsRoutes } from "./modules/contacts/contacts.routes";
 import { reportsRoutes } from "./modules/reports/reports.routes";
 import { messengerRoutes } from "./modules/messenger/messenger.routes";
@@ -23,6 +31,8 @@ import { contractsRoutes } from "./modules/contracts/contracts.routes";
 import { installationsRoutes } from "./modules/installations/installations.routes";
 import { ticketsRoutes } from "./modules/tickets/tickets.routes";
 import { tenantMiddleware } from "./middlewares/tenant.middleware";
+import { rateLimitPlugin } from "./plugins/rate-limit.plugin";
+import { securityPlugin } from "./plugins/security.plugin";
 
 export function buildServer() {
   const app = Fastify({ logger: true });
@@ -43,6 +53,12 @@ export function buildServer() {
   });
 
   app.register(cookie);
+
+  // Security headers e rate limiting são registrados diretamente
+  // no app raiz (não via app.register) para que os hooks se apliquem
+  // a TODAS as rotas, independente de escopo de plugin.
+  securityPlugin(app);
+  rateLimitPlugin(app);
 
   const allowedOrigins = process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(",").map((o) => o.trim())
@@ -130,6 +146,14 @@ export function buildServer() {
   app.register(companyProfileRoutes);
   app.register(workflowsRoutes);
   app.register(conversationsRoutes);
+  app.register(sseRoutes);
+  app.register(presenceRoutes);
+  app.register(savedRepliesRoutes);
+  app.register(automationsRoutes);
+  app.register(scheduledMessagesRoutes);
+  app.register(campaignsRoutes);
+  app.register(aiRoutes);
+  app.register(billingRoutes);
   app.register(contactsRoutes);
   app.register(reportsRoutes);
   app.register(messengerRoutes);

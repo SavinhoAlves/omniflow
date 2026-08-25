@@ -102,12 +102,49 @@ export class WhatsAppService {
   }
 
   async listTemplates(instanceId: string): Promise<any[]> {
+    return prisma.template.findMany({
+      where: { instanceId },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  async syncTemplates(instanceId: string): Promise<{ synced: number }> {
     const instance = await this.getInstanceOrThrow(instanceId);
     if (instance.providerType !== "META_CLOUD_API") {
-      throw new Error("Templates disponíveis apenas para Meta Cloud API");
+      throw new Error("Sincronização de templates disponível apenas para Meta Cloud API");
     }
     const provider = this.providerFactory.get("META_CLOUD_API") as any;
-    return provider.listTemplates(instanceId);
+    const metaTemplates: any[] = await provider.listTemplates(instanceId);
+
+    const now = new Date();
+    await Promise.all(
+      metaTemplates.map((t: any) =>
+        prisma.template.upsert({
+          where: { instanceId_providerId: { instanceId, providerId: t.id } },
+          create: {
+            companyId: instance.companyId,
+            instanceId,
+            providerId: t.id,
+            name: t.name,
+            language: t.language,
+            category: t.category ?? "UTILITY",
+            status: t.status ?? "PENDING",
+            components: t.components ?? [],
+            syncedAt: now,
+          },
+          update: {
+            name: t.name,
+            language: t.language,
+            category: t.category ?? "UTILITY",
+            status: t.status ?? "PENDING",
+            components: t.components ?? [],
+            syncedAt: now,
+          },
+        })
+      )
+    );
+
+    return { synced: metaTemplates.length };
   }
 
   async disconnect(instanceId: string) {
@@ -133,7 +170,10 @@ export class WhatsAppService {
   }
 
   private async getInstanceOrThrow(instanceId: string) {
-    return prisma.whatsAppInstance.findFirstOrThrow({ where: { id: instanceId } });
+    return prisma.whatsAppInstance.findFirstOrThrow({
+      where: { id: instanceId },
+      select: { id: true, companyId: true, providerType: true },
+    });
   }
 
   private async getDecryptedCredentials(instanceId: string): Promise<any> {

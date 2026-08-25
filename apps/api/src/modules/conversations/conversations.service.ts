@@ -31,16 +31,22 @@ export class ConversationsService {
     userId: string;
     departmentId?: string;
     search?: string;
+    priority?: string;
+    unreadOnly?: boolean;
     canViewAll?: boolean;
     userDepartmentIds?: string[];
+    cursor?: string;
+    limit?: number;
   }) {
     const where: any = {};
 
     if (filters.status) where.status = filters.status;
+    if (filters.priority) where.priority = filters.priority;
+    if (filters.unreadOnly) where.unreadCount = { gt: 0 };
+
     if (filters.mine) {
       where.assignedToId = filters.userId;
     } else if (!filters.canViewAll) {
-      // MEMBER: só vê conversas atribuídas a si ou não atribuídas no seu departamento
       if (filters.userDepartmentIds?.length) {
         where.OR = [
           { assignedToId: filters.userId },
@@ -60,20 +66,33 @@ export class ConversationsService {
       };
     }
 
-    return prisma.conversation.findMany({
+    // Cursor pagination — cursor is a conversation ID
+    const limit = Math.min(filters.limit ?? 30, 100);
+    const take = limit + 1; // fetch one extra to know if there's a next page
+
+    const conversations = await prisma.conversation.findMany({
       where,
       include: {
         contact: { select: { id: true, name: true, phoneNumber: true, avatarUrl: true } },
         assignedTo: { select: { id: true, name: true } },
         department: { select: { id: true, name: true } },
         messages: {
+          where: { isInternal: false },
           orderBy: { createdAt: "desc" },
           take: 1,
           select: { content: true, direction: true, type: true, createdAt: true },
         },
       },
       orderBy: { lastMessageAt: "desc" },
+      take,
+      ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
     });
+
+    const hasNextPage = conversations.length > limit;
+    const items = hasNextPage ? conversations.slice(0, limit) : conversations;
+    const nextCursor = hasNextPage ? items[items.length - 1].id : null;
+
+    return { items, nextCursor };
   }
 
   async get(conversationId: string) {
@@ -93,29 +112,51 @@ export class ConversationsService {
     });
   }
 
-  async getMessages(conversationId: string, before?: string) {
+  async getMessages(conversationId: string, options?: { cursor?: string; limit?: number; before?: string }) {
     await prisma.conversation.findFirstOrThrow({ where: { id: conversationId }, select: { id: true } });
 
+    const limit = Math.min(options?.limit ?? 50, 100);
+    const take = limit + 1;
+
     const where: any = { conversationId };
-    if (before) where.createdAt = { lt: new Date(before) };
-    return prisma.message.findMany({
+    if (options?.before) where.createdAt = { lt: new Date(options.before) };
+
+    const messages = await prisma.message.findMany({
       where,
       include: { author: { select: { id: true, name: true } } },
       orderBy: { createdAt: "asc" },
-      take: 50,
+      take,
+      ...(options?.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
     });
+
+    const hasNextPage = messages.length > limit;
+    const items = hasNextPage ? messages.slice(0, limit) : messages;
+    const nextCursor = hasNextPage ? items[items.length - 1].id : null;
+
+    return { items, nextCursor };
+  }
+
+  async addNote(conversationId: string, authorId: string, content: string) {
+    const note = await prisma.message.create({
+      data: {
+        conversationId,
+        direction: "OUTBOUND",
+        type: "TEXT",
+        content,
+        authorId,
+        isInternal: true,
+      },
+      include: { author: { select: { id: true, name: true } } },
+    });
+    return note;
   }
 
   private async assertMetaWindowOpen(conversationId: string) {
-    const lastInbound = await prisma.message.findFirst({
-      where: { conversationId, direction: "INBOUND" },
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
+    const conv = await prisma.conversation.findFirst({
+      where: { id: conversationId },
+      select: { windowExpiresAt: true },
     });
-    const expiry = lastInbound
-      ? new Date(lastInbound.createdAt.getTime() + 24 * 60 * 60 * 1000)
-      : null;
-    if (!expiry || expiry < new Date()) {
+    if (!conv?.windowExpiresAt || conv.windowExpiresAt < new Date()) {
       const err: any = new Error(
         "Janela de 24 horas encerrada. Aguarde o contato enviar uma mensagem ou utilize um template aprovado."
       );
@@ -374,6 +415,80 @@ export class ConversationsService {
     await queue.close();
 
     return { ok: true };
+  }
+
+  // T5.2 — Tags
+  async updateTags(conversationId: string, tags: string[]) {
+    await prisma.conversation.updateMany({
+      where: { id: conversationId },
+      data: { tags },
+    });
+  }
+
+  // T5.3 — Bulk actions
+  async bulkAssign(conversationIds: string[], assignedToId: string | null) {
+    await prisma.conversation.updateMany({
+      where: { id: { in: conversationIds } },
+      data: { assignedToId },
+    });
+  }
+
+  async bulkStatus(conversationIds: string[], status: "OPEN" | "RESOLVED") {
+    await prisma.conversation.updateMany({
+      where: { id: { in: conversationIds } },
+      data: { status },
+    });
+  }
+
+  async bulkTag(conversationIds: string[], tags: string[]) {
+    await Promise.all(
+      conversationIds.map((id) =>
+        prisma.conversation.updateMany({ where: { id }, data: { tags } })
+      )
+    );
+  }
+
+  // T5.5 — Cross-conversation full-text search
+  async search(query: string, limit = 20) {
+    return prisma.message.findMany({
+      where: {
+        content: { contains: query, mode: "insensitive" },
+        isInternal: false,
+        direction: "INBOUND",
+      },
+      include: {
+        conversation: {
+          select: {
+            id: true,
+            status: true,
+            contact: { select: { id: true, name: true, phoneNumber: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        conversationId: true,
+        conversation: true,
+      },
+    });
+  }
+
+  async markRead(conversationId: string) {
+    await prisma.conversation.updateMany({
+      where: { id: conversationId },
+      data: { unreadCount: 0 },
+    });
+  }
+
+  async setPriority(conversationId: string, priority: string) {
+    await prisma.conversation.updateMany({
+      where: { id: conversationId },
+      data: { priority },
+    });
   }
 
   async changeStatus(conversationId: string, status: "OPEN" | "RESOLVED") {
