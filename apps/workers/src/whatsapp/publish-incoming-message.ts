@@ -5,6 +5,19 @@ const incomingQueue = new Queue(QUEUE_NAMES.INCOMING_MESSAGES, {
   connection: getRedisConnectionOptions(),
 });
 
+// Extrai o rowId de uma resposta interactiveMessage (nativeFlowMessage)
+// paramsJson chega como string JSON: ex. {"id":"2","title":"Vendas"}
+function extractInteractiveId(irm: any): string | undefined {
+  const paramsJson = irm?.nativeFlowResponseMessage?.paramsJson;
+  if (!paramsJson) return undefined;
+  try {
+    const parsed = JSON.parse(paramsJson);
+    return parsed.id ?? parsed.rowId ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Normaliza uma mensagem recebida do Baileys (formato proprietário
  * da lib) para `IncomingMessageEvent` (o mesmo formato que
@@ -15,12 +28,13 @@ const incomingQueue = new Queue(QUEUE_NAMES.INCOMING_MESSAGES, {
  * última ponta.
  */
 export async function publishIncomingMessage(instanceId: string, rawMessage: any) {
-  // Extrai texto da mensagem — inclui respostas de menus interativos (lista/botão)
+  // Extrai texto da mensagem — inclui respostas de menus interativos (lista/botão/interactive)
   const text =
     rawMessage.message?.conversation ??
     rawMessage.message?.extendedTextMessage?.text ??
     rawMessage.message?.listResponseMessage?.singleSelectReply?.selectedRowId ??
     rawMessage.message?.buttonsResponseMessage?.selectedButtonId ??
+    extractInteractiveId(rawMessage.message?.interactiveResponseMessage) ??
     undefined;
 
   const rawJid = rawMessage.key.remoteJid ?? "";

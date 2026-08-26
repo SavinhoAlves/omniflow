@@ -1,13 +1,13 @@
 import makeWASocket, {
   DisconnectReason,
-  useMultiFileAuthState,
   WASocket,
+  proto,
+  generateWAMessageFromContent,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
-import path from "node:path";
-import fs from "node:fs/promises";
 import { QUEUE_NAMES } from "../queues/queue-names";
 
+import { useDatabaseAuthState } from "./use-database-auth-state";
 import { publishIncomingMessage } from "./publish-incoming-message";
 import { publishPhoneOutbound } from "./publish-phone-outbound";
 
@@ -17,6 +17,7 @@ interface SessionEntry {
   qrCode?: string;
   lastEventAt?: number;
   watchdogTimer?: ReturnType<typeof setTimeout>;
+  clearSession?: () => Promise<void>;
 }
 
 /**
@@ -32,17 +33,12 @@ interface SessionEntry {
  * abaixo (uma classe isolada, sem estado global espalhado) é o que
  * torna essa evolução possível sem reescrever tudo.
  *
- * PERSISTÊNCIA DE AUTH STATE: usamos `useMultiFileAuthState` do
- * próprio Baileys como ponto de partida (grava em disco local), mas
- * isso NÃO sobrevive a um container efêmero sendo recriado. Para
- * produção real, este é o primeiro ponto a trocar por uma
- * implementação que persista em Postgres ou S3 (o formato do estado
- * é serializável em JSON) — deixado como TODO explícito abaixo em
- * vez de mascarar a limitação.
+ * PERSISTÊNCIA: usa PostgreSQL via useDatabaseAuthState (tabelas
+ * bailey_sessions + bailey_session_keys). Sobrevive a restarts de
+ * container — migração do disco local concluída na Fase 1 (T1.3).
  */
 export class SessionManager {
   private sessions = new Map<string, SessionEntry>();
-  private readonly authDir = path.join(process.cwd(), ".baileys-sessions");
 
   async connect(instanceId: string): Promise<{ status: SessionEntry["status"]; qrCode?: string }> {
     const existing = this.sessions.get(instanceId);
@@ -57,25 +53,17 @@ export class SessionManager {
     }
 
     // Se houver uma sessão morta/com erro anterior, limpamos do mapa antes de reiniciar.
-    // Se o status era ERROR (loggedOut), deletamos também os arquivos de auth do disco
+    // Se o status era ERROR (loggedOut), limpamos também o registro do banco
     // para que a próxima sessão gere um QR Code novo em vez de tentar reautenticar
     // com credenciais inválidas e falhar novamente.
     if (existing) {
-      if (existing.status === "ERROR") {
-        const staleSessionPath = path.join(this.authDir, instanceId);
-        await fs.rm(staleSessionPath, { recursive: true, force: true }).catch(() => {});
+      if (existing.status === "ERROR" && existing.clearSession) {
+        await existing.clearSession().catch(() => {});
       }
       this.sessions.delete(instanceId);
     }
 
-    // TODO(produção): substituir por auth state persistido em
-    // Postgres/S3. `useMultiFileAuthState` grava em
-    // `${this.authDir}/${instanceId}` — funciona para desenvolvimento
-    // local e para um único worker de longa duração, mas se perde
-    // ao recriar o container.
-    const sessionPath = path.join(this.authDir, instanceId);
-    await fs.mkdir(sessionPath, { recursive: true });
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    const { state, saveCreds, clearSession } = await useDatabaseAuthState(instanceId);
 
     const socket = makeWASocket({
       auth: state,
@@ -86,7 +74,7 @@ export class SessionManager {
       keepAliveIntervalMs: 15000,
     });
 
-    const entry: SessionEntry = { socket, status: "CONNECTING", lastEventAt: Date.now() };
+    const entry: SessionEntry = { socket, status: "CONNECTING", lastEventAt: Date.now(), clearSession };
     this.sessions.set(instanceId, entry);
 
     // Watchdog: se nenhum evento chegar em 10 min com sessão CONNECTED, reconecta.
@@ -139,10 +127,9 @@ export class SessionManager {
             console.error(`[session-manager] Reconexão falhou para ${instanceId}:`, err.message)
           );
         } else {
-          // loggedOut: credenciais invalidadas — remove auth do disco
+          // loggedOut: credenciais invalidadas — limpa do banco
           // para que o próximo connect() gere um QR Code limpo.
-          const sessionPath = path.join(this.authDir, instanceId);
-          fs.rm(sessionPath, { recursive: true, force: true }).catch(() => {});
+          clearSession().catch(() => {});
         }
       }
     });
@@ -212,15 +199,26 @@ export class SessionManager {
     const bare = to.replace(/^\+/, "");
     const jid = bare.includes("@") ? bare : `${bare}@s.whatsapp.net`;
     try {
-      await entry.socket.sendMessage(jid, {
-        text: header || "Selecione uma opção:",
-        footer: "",
-        buttonText: "Ver opções",
-        sections: [{
-          title: "Opções disponíveis",
-          rows: options.map((opt, i) => ({ title: opt.label, rowId: String(i + 1) })),
-        }],
-      } as any);
+      // Constrói listMessage via proto diretamente — a API de alto nível do Baileys
+      // ignora buttonText/sections quando "text" está presente no objeto.
+      const listProto: proto.IMessage = {
+        listMessage: {
+          title: header || "Selecione uma opção:",
+          buttonText: "Ver opções",
+          listType: proto.Message.ListMessage.ListType.SINGLE_SELECT,
+          sections: [{
+            title: "Opções disponíveis",
+            rows: options.map((opt, i) => ({
+              title: opt.label,
+              rowId: String(i + 1),
+            })),
+          }],
+        },
+      };
+      const waMsg = generateWAMessageFromContent(jid, listProto, {
+        userJid: entry.socket.user?.id ?? "",
+      });
+      await entry.socket.relayMessage(jid, waMsg.message!, { messageId: waMsg.key.id! });
     } catch {
       // Contas pessoais não suportam mensagens de lista — envia como texto simples
       const lines = options.map((o, i) => `${i + 1}. ${o.label}`).join("\n");
