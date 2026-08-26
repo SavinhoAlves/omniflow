@@ -339,7 +339,7 @@ model Conversation {
   contactId     String             @map("contact_id")
   contact       Contact            @relation(fields: [contactId], references: [id])
   instanceId    String             @map("instance_id")
-  instance      WhatsAppInstance   @relation(fields: [instanceId], references: [id])
+  instance      WhatsAppInstance   @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   assignedToId  String?            @map("assigned_to_id")
   assignedTo    User?              @relation("AssignedConversations", fields: [assignedToId], references: [id], onDelete: SetNull)
   departmentId  String?            @map("department_id")
