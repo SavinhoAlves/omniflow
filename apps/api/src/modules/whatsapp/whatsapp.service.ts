@@ -155,6 +155,8 @@ export class WhatsAppService {
       where: { id: instanceId },
       data: { connectionStatus: "DISCONNECTED", qrCode: null },
     });
+    // Limpa todas as conversas da instância — mensagens e metadados cascadeiam automaticamente
+    await prisma.conversation.deleteMany({ where: { instanceId } });
   }
 
   async deleteInstance(instanceId: string) {
