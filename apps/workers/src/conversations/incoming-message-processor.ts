@@ -237,12 +237,21 @@ export function startIncomingMessageProcessor() {
               await sessionManager.sendText(instanceId, fromNumber, botMsg.text);
             }
 
+            // Menus são armazenados como JSON para permitir renderização visual no front
+            const msgContent = (botMsg.isMenu && botMsg.menuOptions?.length)
+              ? JSON.stringify({
+                  _t: "menu",
+                  h: botMsg.text.split("\n\n")[0] || "Selecione uma opção:",
+                  o: botMsg.menuOptions.map((x) => x.label),
+                })
+              : botMsg.text;
+
             await prisma.message.create({
               data: {
                 conversationId: conversation.id,
                 direction: "OUTBOUND",
                 type: "TEXT",
-                content: botMsg.text,
+                content: msgContent,
               },
             });
           } catch (err: any) {

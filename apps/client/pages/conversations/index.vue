@@ -201,7 +201,13 @@
                     :size="11"
                     class="shrink-0 text-blue-400"
                   />
-                  <p class="truncate text-[11px] leading-none text-zinc-500">
+                  <template v-if="parseMenuContent(conv.messages?.[0]?.content)">
+                    <List :size="10" class="shrink-0 text-zinc-500" />
+                    <p class="truncate text-[11px] leading-none text-zinc-500 italic">
+                      {{ parseMenuContent(conv.messages?.[0]?.content)!.h }}
+                    </p>
+                  </template>
+                  <p v-else class="truncate text-[11px] leading-none text-zinc-500">
                     {{ conv.messages?.[0]?.content || 'Nova conversa' }}
                   </p>
                 </div>
@@ -470,6 +476,18 @@
                 <a :href="msg.mediaUrl" target="_blank" class="flex items-center gap-2 text-sm text-white/80 underline">
                   <Paperclip :size="13" />{{ msg.content || 'Arquivo' }}
                 </a>
+              </template>
+              <template v-else-if="parseMenuContent(msg.content)">
+                <div class="-mx-1 overflow-hidden rounded-xl border border-white/10">
+                  <p class="px-3 py-2.5 text-sm leading-snug text-white">{{ parseMenuContent(msg.content)!.h }}</p>
+                  <div class="border-t border-white/10 px-3 py-2">
+                    <p v-for="opt in parseMenuContent(msg.content)!.o" :key="opt" class="text-xs text-white/75 py-0.5">• {{ opt }}</p>
+                  </div>
+                  <div class="flex items-center justify-center gap-1.5 border-t border-white/15 py-2">
+                    <List :size="12" class="text-blue-300" />
+                    <span class="text-xs font-semibold text-blue-300">Ver opções</span>
+                  </div>
+                </div>
               </template>
               <template v-else>
                 <p class="text-sm text-white whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
@@ -1184,7 +1202,7 @@ import {
   Search, CheckCheck, CheckCircle, RotateCcw, Send, MessageSquare,
   ArrowRightLeft, PanelRight, X, LoaderCircle, User, Layers,
   Plus, ChevronDown, Trash2, Play, Pause, Paperclip, Mic, Clock,
-  StickyNote, Flag, Zap, AlertTriangle,
+  StickyNote, Flag, Zap, AlertTriangle, List,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 import { useCookie, useRuntimeConfig } from "#imports"
@@ -1474,6 +1492,13 @@ function avatarGradient(name: string) {
 
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?"
+}
+
+// ── Menu message helpers ───────────────────────────────────────────────────────
+
+function parseMenuContent(content?: string | null): { h: string; o: string[] } | null {
+  if (!content?.startsWith('{"_t":"menu"')) return null
+  try { return JSON.parse(content) } catch { return null }
 }
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
