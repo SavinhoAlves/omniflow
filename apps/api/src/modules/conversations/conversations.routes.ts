@@ -361,4 +361,17 @@ export async function conversationsRoutes(app: FastifyInstance) {
       return reply.send({ ok: true });
     }
   );
+
+  // ── CSAT — nota de satisfação ────────────────────────────────────────────────
+
+  app.patch(
+    "/conversations/:id/csat",
+    { preHandler: requirePermission(PERMISSIONS.CONVERSATIONS_VIEW_OWN) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { score } = z.object({ score: z.number().int().min(1).max(5) }).parse(request.body);
+      await service.setCsat(id, score);
+      return reply.send({ ok: true });
+    }
+  );
 }

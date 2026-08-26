@@ -102,97 +102,145 @@
             :key="conv.id"
             class="relative group"
           >
-          <!-- Dropdown trigger -->
-          <div
-            role="button"
-            class="absolute right-2 inset-y-0 my-auto z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-300 transition-all"
-            @click.stop="toggleConvMenu(conv.id)"
-          >
-            <ChevronDown :size="14" />
-          </div>
-
-          <!-- Dropdown menu (outside the card button to avoid button-in-button) -->
-          <div
-            v-if="convMenuOpen === conv.id"
-            class="absolute right-2 top-8 z-20 min-w-[160px] rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
-            @click.stop
-          >
-            <button
-              v-if="conv.status === 'LEAD'"
-              class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-amber-300 hover:bg-zinc-800"
-              @click="selectConversation(conv.id); convMenuOpen = null; beginConversation()"
-            >
-              <Play :size="13" class="text-amber-400" />
-              Iniciar Atendimento
-            </button>
-            <button
-              v-if="conv.status === 'OPEN'"
-              class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
-              @click="quickFinish(conv); convMenuOpen = null"
-            >
-              <CheckCircle :size="13" class="text-emerald-400" />
-              Finalizar Atendimento
-            </button>
-            <button
-              class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:bg-zinc-800"
-              @click="deleteConv(conv); convMenuOpen = null"
-            >
-              <Trash2 :size="13" />
-              Apagar conversa
-            </button>
-          </div>
-
-          <button
-            class="relative w-full flex items-start gap-3 rounded-xl px-3 py-3 text-left transition-all"
-            :class="[
-              activeConversationId === conv.id
-                ? 'bg-blue-500/10 ring-1 ring-inset ring-blue-500/20'
-                : 'hover:bg-zinc-800/50',
-              conv.status === 'RESOLVED' && activeConversationId !== conv.id ? 'opacity-40' : '',
-            ]"
-            @click="selectConversation(conv.id)"
-          >
+            <!-- Dropdown trigger -->
             <div
-              class="relative h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold"
-              :style="{ background: avatarGradient(conv.contact.name ?? conv.contact.phoneNumber) }"
+              role="button"
+              class="absolute right-2 inset-y-0 my-auto z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-zinc-300 transition-all"
+              @click.stop="toggleConvMenu(conv.id)"
             >
-              {{ initials(conv.contact.name ?? conv.contact.phoneNumber) }}
-              <span
+              <ChevronDown :size="14" />
+            </div>
+
+            <!-- Dropdown menu -->
+            <div
+              v-if="convMenuOpen === conv.id"
+              class="absolute right-2 top-8 z-20 min-w-[160px] rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
+              @click.stop
+            >
+              <button
                 v-if="conv.status === 'LEAD'"
-                class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-amber-400"
-              />
-              <span
-                v-else-if="conv.status === 'OPEN'"
-                class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-emerald-400"
-              />
+                class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-amber-300 hover:bg-zinc-800"
+                @click="selectConversation(conv.id); convMenuOpen = null; beginConversation()"
+              >
+                <Play :size="13" class="text-amber-400" />
+                Iniciar Atendimento
+              </button>
+              <button
+                v-if="conv.status === 'OPEN'"
+                class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-800"
+                @click="quickFinish(conv); convMenuOpen = null"
+              >
+                <CheckCircle :size="13" class="text-emerald-400" />
+                Finalizar Atendimento
+              </button>
+              <button
+                class="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:bg-zinc-800"
+                @click="deleteConv(conv); convMenuOpen = null"
+              >
+                <Trash2 :size="13" />
+                Apagar conversa
+              </button>
             </div>
-            <div class="flex-1 min-w-0 pt-0.5">
-              <div class="flex items-baseline justify-between gap-1">
-                <p
-                  class="text-sm font-semibold truncate leading-none"
-                  :class="activeConversationId === conv.id ? 'text-white' : 'text-zinc-200'"
-                >
-                  {{ conv.contact.name || conv.contact.phoneNumber }}
-                </p>
-                <span class="shrink-0 text-[10px] text-zinc-600">{{ formatTime(conv.lastMessageAt) }}</span>
-              </div>
-              <div class="mt-1 flex items-center gap-1">
-                <CheckCheck
-                  v-if="conv.messages?.[0]?.direction === 'OUTBOUND' && conv.status === 'OPEN'"
-                  :size="11"
-                  class="shrink-0 text-blue-400"
+
+            <button
+              class="relative w-full flex items-start gap-3 rounded-xl px-3 py-3 text-left transition-all"
+              :class="[
+                activeConversationId === conv.id
+                  ? 'bg-blue-500/10 ring-1 ring-inset ring-blue-500/20'
+                  : 'hover:bg-zinc-800/50',
+                conv.status === 'RESOLVED' && activeConversationId !== conv.id ? 'opacity-40' : '',
+              ]"
+              @click="selectConversation(conv.id)"
+            >
+              <!-- Priority strip on left edge -->
+              <div
+                v-if="conv.priority && conv.priority !== 'MEDIUM'"
+                class="absolute left-0 inset-y-1 w-0.5 rounded-r-full"
+                :class="priorityStripClass[conv.priority]"
+              />
+
+              <div
+                class="relative h-9 w-9 shrink-0 rounded-full flex items-center justify-center text-xs font-bold"
+                :style="{ background: avatarGradient(conv.contact.name ?? conv.contact.phoneNumber) }"
+              >
+                {{ initials(conv.contact.name ?? conv.contact.phoneNumber) }}
+                <span
+                  v-if="conv.status === 'LEAD'"
+                  class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-amber-400"
                 />
-                <p class="truncate text-[11px] leading-none text-zinc-500">
-                  {{ conv.messages?.[0]?.content || 'Nova conversa' }}
-                </p>
+                <span
+                  v-else-if="conv.status === 'OPEN'"
+                  class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-zinc-900 bg-emerald-400"
+                />
               </div>
-              <div v-if="conv.department" class="mt-1.5">
-                <span class="inline-block rounded-md bg-zinc-800 px-1.5 py-0.5 text-[9px] font-medium text-zinc-500">
-                  {{ conv.department.name }}
-                </span>
+              <div class="flex-1 min-w-0 pt-0.5">
+                <div class="flex items-baseline justify-between gap-1">
+                  <p
+                    class="text-sm truncate leading-none"
+                    :class="[
+                      activeConversationId === conv.id ? 'text-white' : 'text-zinc-200',
+                      (conv.unreadCount ?? 0) > 0 ? 'font-bold' : 'font-semibold',
+                    ]"
+                  >
+                    {{ conv.contact.name || conv.contact.phoneNumber }}
+                  </p>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <!-- Unread badge -->
+                    <span
+                      v-if="(conv.unreadCount ?? 0) > 0"
+                      class="rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white"
+                    >
+                      {{ conv.unreadCount }}
+                    </span>
+                    <span class="text-[10px] text-zinc-600">{{ formatTime(conv.lastMessageAt) }}</span>
+                  </div>
+                </div>
+                <div class="mt-1 flex items-center gap-1">
+                  <CheckCheck
+                    v-if="conv.messages?.[0]?.direction === 'OUTBOUND' && conv.status === 'OPEN'"
+                    :size="11"
+                    class="shrink-0 text-blue-400"
+                  />
+                  <p class="truncate text-[11px] leading-none text-zinc-500">
+                    {{ conv.messages?.[0]?.content || 'Nova conversa' }}
+                  </p>
+                </div>
+                <div class="mt-1.5 flex flex-wrap items-center gap-1">
+                  <span v-if="conv.department" class="inline-block rounded-md bg-zinc-800 px-1.5 py-0.5 text-[9px] font-medium text-zinc-500">
+                    {{ conv.department.name }}
+                  </span>
+                  <!-- SLA breached badge -->
+                  <span
+                    v-if="conv.slaBreachedAt"
+                    class="inline-flex items-center gap-0.5 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-red-400"
+                    title="SLA vencido"
+                  >
+                    <AlertTriangle :size="8" />
+                    SLA
+                  </span>
+                  <!-- Priority badge (not MEDIUM) -->
+                  <span
+                    v-if="conv.priority && conv.priority !== 'MEDIUM'"
+                    class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[9px] font-semibold"
+                    :class="priorityBadgeClass[conv.priority]"
+                  >
+                    <Flag :size="8" />
+                    {{ priorityLabel[conv.priority] }}
+                  </span>
+                  <!-- Tags (first 2) -->
+                  <span
+                    v-for="tag in (conv.tags ?? []).slice(0, 2)"
+                    :key="tag"
+                    class="inline-block rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-400"
+                  >
+                    {{ tag }}
+                  </span>
+                  <span v-if="(conv.tags ?? []).length > 2" class="text-[9px] text-zinc-600">
+                    +{{ (conv.tags ?? []).length - 2 }}
+                  </span>
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
           </div>
         </div>
       </div>
@@ -229,6 +277,34 @@
         </div>
 
         <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Priority selector -->
+          <div class="relative" @click.stop>
+            <button
+              class="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-semibold transition"
+              :class="priorityHeaderClass[activeConversation.priority || 'MEDIUM']"
+              @click="showPriorityMenu = !showPriorityMenu"
+            >
+              <Flag :size="10" />
+              {{ priorityLabel[activeConversation.priority || 'MEDIUM'] }}
+              <ChevronDown :size="9" />
+            </button>
+            <div
+              v-if="showPriorityMenu"
+              class="absolute right-0 top-full mt-1 z-30 min-w-[120px] rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
+            >
+              <button
+                v-for="p in PRIORITIES"
+                :key="p.value"
+                class="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] font-medium hover:bg-zinc-800 transition"
+                :class="p.textClass"
+                @click="setPriority(p.value); showPriorityMenu = false"
+              >
+                <Flag :size="10" />
+                {{ p.label }}
+              </button>
+            </div>
+          </div>
+
           <button
             v-if="activeConversation.status === 'OPEN'"
             class="flex items-center gap-1.5 rounded-lg border border-emerald-600/30 bg-emerald-600/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-600/20 disabled:opacity-50"
@@ -271,6 +347,19 @@
             <span class="text-[10px] text-zinc-700">{{ msg.content }}</span>
           </div>
 
+          <!-- Internal note -->
+          <div v-else-if="msg.isInternal" class="flex justify-center py-0.5">
+            <div class="w-full max-w-[72%] rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-2.5">
+              <div class="mb-1 flex items-center gap-1.5">
+                <StickyNote :size="10" class="text-amber-400" />
+                <span class="text-[9px] font-semibold uppercase tracking-wider text-amber-500">Nota interna</span>
+                <span v-if="msg.author" class="text-[9px] text-amber-700/80">· {{ msg.author.name }}</span>
+              </div>
+              <p class="text-sm text-amber-200/90 whitespace-pre-wrap break-words leading-relaxed">{{ msg.content }}</p>
+              <p class="mt-1 text-right text-[10px] text-amber-700/60">{{ formatMessageTime(msg.createdAt) }}</p>
+            </div>
+          </div>
+
           <!-- Inbound -->
           <div v-else-if="msg.direction === 'INBOUND'" class="flex justify-start">
             <div class="max-w-[68%] min-w-0 rounded-2xl rounded-bl-md bg-zinc-800/80 px-4 py-2.5">
@@ -278,7 +367,42 @@
                 <img :src="msg.mediaUrl" class="max-w-full rounded-lg" loading="lazy" />
               </template>
               <template v-else-if="msg.type === 'AUDIO' && msg.mediaUrl">
-                <audio :src="msg.mediaUrl" controls class="w-full max-w-[220px]" />
+                <audio :ref="(el) => registerAudio(msg.id, el as HTMLAudioElement | null)" :src="msg.mediaUrl" preload="metadata" class="hidden" />
+                <div class="flex w-64 flex-col gap-1 py-0.5">
+                  <div class="flex items-center gap-2">
+                    <button
+                      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-700 transition hover:bg-zinc-600 active:scale-95"
+                      @click="toggleAudio(msg.id)"
+                    >
+                      <Pause v-if="getAudioState(msg.id).playing" :size="13" class="text-white" />
+                      <Play v-else :size="13" class="translate-x-px text-white" />
+                    </button>
+                    <div
+                      class="relative h-1.5 flex-1 cursor-pointer rounded-full bg-zinc-700"
+                      @click="seekAudio(msg.id, $event)"
+                    >
+                      <div
+                        class="h-full rounded-full bg-emerald-500 transition-all duration-100"
+                        :style="{ width: `${audioProgress(msg.id)}%` }"
+                      />
+                      <div
+                        class="pointer-events-none absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow"
+                        :style="{ left: `calc(${audioProgress(msg.id)}% - 6px)` }"
+                      />
+                    </div>
+                    <button
+                      class="shrink-0 rounded px-1 py-0.5 text-[10px] font-bold tabular-nums transition"
+                      :class="getAudioState(msg.id).speed > 1
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300'"
+                      @click="cycleSpeed(msg.id)"
+                    >{{ speedLabel(msg.id) }}</button>
+                  </div>
+                  <div class="flex justify-between pl-10 text-[9px] text-zinc-600 tabular-nums">
+                    <span>{{ fmtAudioTime(getAudioState(msg.id).currentTime) }}</span>
+                    <span>{{ fmtAudioTime(getAudioState(msg.id).duration) }}</span>
+                  </div>
+                </div>
               </template>
               <template v-else-if="msg.type === 'VIDEO' && msg.mediaUrl">
                 <video :src="msg.mediaUrl" controls class="max-w-full rounded-lg" />
@@ -302,7 +426,42 @@
                 <img :src="msg.mediaUrl" class="max-w-full rounded-lg" loading="lazy" />
               </template>
               <template v-else-if="msg.type === 'AUDIO' && msg.mediaUrl">
-                <audio :src="msg.mediaUrl" controls class="w-full max-w-[220px]" />
+                <audio :ref="(el) => registerAudio(msg.id, el as HTMLAudioElement | null)" :src="msg.mediaUrl" preload="metadata" class="hidden" />
+                <div class="flex w-64 flex-col gap-1 py-0.5">
+                  <div class="flex items-center gap-2">
+                    <button
+                      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 transition hover:bg-white/30 active:scale-95"
+                      @click="toggleAudio(msg.id)"
+                    >
+                      <Pause v-if="getAudioState(msg.id).playing" :size="13" class="text-white" />
+                      <Play v-else :size="13" class="translate-x-px text-white" />
+                    </button>
+                    <div
+                      class="relative h-1.5 flex-1 cursor-pointer rounded-full bg-white/25"
+                      @click="seekAudio(msg.id, $event)"
+                    >
+                      <div
+                        class="h-full rounded-full bg-white transition-all duration-100"
+                        :style="{ width: `${audioProgress(msg.id)}%` }"
+                      />
+                      <div
+                        class="pointer-events-none absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow"
+                        :style="{ left: `calc(${audioProgress(msg.id)}% - 6px)` }"
+                      />
+                    </div>
+                    <button
+                      class="shrink-0 rounded px-1 py-0.5 text-[10px] font-bold tabular-nums transition"
+                      :class="getAudioState(msg.id).speed > 1
+                        ? 'bg-white/20 text-white'
+                        : 'text-blue-200/70 hover:bg-white/10 hover:text-white'"
+                      @click="cycleSpeed(msg.id)"
+                    >{{ speedLabel(msg.id) }}</button>
+                  </div>
+                  <div class="flex justify-between pl-10 text-[9px] text-blue-200/70 tabular-nums">
+                    <span>{{ fmtAudioTime(getAudioState(msg.id).currentTime) }}</span>
+                    <span>{{ fmtAudioTime(getAudioState(msg.id).duration) }}</span>
+                  </div>
+                </div>
               </template>
               <template v-else-if="msg.type === 'VIDEO' && msg.mediaUrl">
                 <video :src="msg.mediaUrl" controls class="max-w-full rounded-lg" />
@@ -344,8 +503,20 @@
           <button class="text-blue-500 transition hover:text-blue-400" @click="changeStatus('OPEN')">Reabrir</button>
         </div>
         <div v-else class="space-y-2.5">
+          <!-- Internal note mode banner -->
+          <div
+            v-if="isInternalNote"
+            class="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-1.5"
+          >
+            <StickyNote :size="12" class="text-amber-400 shrink-0" />
+            <p class="text-[11px] text-amber-400">Nota interna — visível apenas para agentes</p>
+            <button class="ml-auto text-amber-600 hover:text-amber-400" @click="isInternalNote = false">
+              <X :size="12" />
+            </button>
+          </div>
+
           <!-- Aviso: janela de 24h encerrada (Meta Cloud API) -->
-          <div v-if="windowClosed" class="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-2.5">
+          <div v-if="windowClosed && !isInternalNote" class="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-2.5">
             <Clock :size="13" class="mt-0.5 shrink-0 text-amber-400" />
             <div class="min-w-0">
               <p class="text-xs font-semibold text-amber-300">Janela de 24 horas encerrada</p>
@@ -356,7 +527,7 @@
             </div>
           </div>
 
-          <!-- Erro de envio (ex.: janela detectada no servidor) -->
+          <!-- Erro de envio -->
           <div v-if="sendError" class="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/8 px-3.5 py-2">
             <p class="text-[11px] text-red-300">{{ sendError }}</p>
             <button class="ml-auto shrink-0 text-red-500 hover:text-red-300" @click="sendError = ''">
@@ -371,26 +542,92 @@
             <!-- Attach button -->
             <button
               class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-40"
-              :disabled="windowClosed || uploadingMedia"
+              :disabled="(windowClosed && !isInternalNote) || uploadingMedia || isInternalNote"
               title="Enviar arquivo"
               @click="fileInputRef?.click()"
             >
               <Paperclip :size="16" />
             </button>
 
+            <!-- Saved replies button -->
+            <div class="relative shrink-0">
+              <button
+                class="flex h-[38px] w-[38px] items-center justify-center rounded-xl transition"
+                :class="showRepliesPicker
+                  ? 'bg-blue-500/15 text-blue-400 ring-1 ring-inset ring-blue-500/30'
+                  : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'"
+                title="Respostas rápidas"
+                @click.stop="openRepliesPicker"
+              >
+                <Zap :size="15" />
+              </button>
+
+              <!-- Picker popup -->
+              <div
+                v-if="showRepliesPicker"
+                class="absolute bottom-full left-0 z-20 mb-2 w-72 overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900 shadow-2xl"
+                @click.stop
+              >
+                <div class="border-b border-zinc-800 p-2">
+                  <input
+                    v-model="repliesSearch"
+                    type="text"
+                    placeholder="Buscar resposta rápida..."
+                    class="w-full rounded-lg border border-zinc-700/60 bg-zinc-800/60 px-3 py-1.5 text-sm text-white outline-none transition focus:border-blue-500"
+                  />
+                </div>
+                <div class="max-h-56 overflow-y-auto p-1">
+                  <div v-if="loadingReplies" class="py-8 text-center text-sm text-zinc-600">
+                    Carregando...
+                  </div>
+                  <div v-else-if="filteredReplies.length === 0" class="py-8 text-center text-sm text-zinc-600">
+                    Nenhuma resposta encontrada
+                  </div>
+                  <button
+                    v-for="reply in filteredReplies"
+                    :key="reply.id"
+                    class="flex w-full flex-col rounded-lg px-3 py-2.5 text-left transition hover:bg-zinc-800"
+                    @click="insertReply(reply.content)"
+                  >
+                    <span class="text-xs font-semibold text-zinc-200">{{ reply.title }}</span>
+                    <span class="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-zinc-500">{{ reply.content }}</span>
+                  </button>
+                </div>
+                <div class="border-t border-zinc-800 px-3 py-2 text-[10px] text-zinc-700">
+                  Clique para inserir · ESC para fechar
+                </div>
+              </div>
+            </div>
+
             <!-- Textarea -->
             <textarea
               v-model="inputText"
               rows="1"
-              :disabled="windowClosed"
-              :placeholder="windowClosed ? 'Janela de 24h encerrada — aguarde o contato responder' : 'Mensagem…'"
-              class="flex-1 min-h-[38px] max-h-32 resize-none overflow-y-hidden rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 transition focus:border-blue-500/50 focus:outline-none focus:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="windowClosed && !isInternalNote"
+              :placeholder="isInternalNote ? 'Escreva uma nota interna…' : windowClosed ? 'Janela de 24h encerrada — aguarde o contato responder' : 'Mensagem…'"
+              class="flex-1 min-h-[38px] max-h-32 resize-none overflow-y-hidden rounded-xl border py-2.5 px-4 text-sm placeholder-zinc-600 transition focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              :class="isInternalNote
+                ? 'border-amber-500/40 bg-amber-500/5 text-amber-100 focus:border-amber-500/60'
+                : 'border-zinc-700/60 bg-zinc-800/60 text-zinc-100 focus:border-blue-500/50 focus:bg-zinc-800'"
               @keydown.enter.exact.prevent="sendMessage"
               @input="autoResize"
             />
 
+            <!-- Internal note toggle -->
+            <button
+              class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition"
+              :class="isInternalNote
+                ? 'bg-amber-500/15 text-amber-400 ring-1 ring-inset ring-amber-500/30'
+                : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'"
+              title="Nota interna (visível apenas para agentes)"
+              @click="isInternalNote = !isInternalNote"
+            >
+              <StickyNote :size="15" />
+            </button>
+
             <!-- Audio record button -->
             <button
+              v-if="!isInternalNote"
               class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40"
               :class="isRecording
                 ? 'bg-red-600 text-white animate-pulse'
@@ -404,11 +641,13 @@
 
             <!-- Send button -->
             <button
-              class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-blue-600 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
-              :disabled="!inputText.trim() || sending || windowClosed"
+              class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40"
+              :class="isInternalNote ? 'bg-amber-500 hover:bg-amber-400' : 'bg-blue-600 hover:bg-blue-500'"
+              :disabled="!inputText.trim() || sending || (windowClosed && !isInternalNote)"
               @click="sendMessage"
             >
-              <Send :size="15" class="text-white" />
+              <StickyNote v-if="isInternalNote" :size="15" class="text-white" />
+              <Send v-else :size="15" class="text-white" />
             </button>
           </div>
         </div>
@@ -438,7 +677,7 @@
     ============================================================ -->
     <div
       v-if="activeConversation && showInfoPanel"
-      class="w-[232px] shrink-0 flex flex-col border-l border-zinc-800/80 bg-zinc-950"
+      class="w-[232px] shrink-0 flex flex-col border-l border-zinc-800/80 bg-zinc-950 overflow-y-auto"
     >
       <!-- Contact card -->
       <div class="flex flex-col items-center px-5 pb-5 pt-7 text-center">
@@ -474,6 +713,78 @@
 
       <div class="mx-4 h-px bg-zinc-800/60" />
 
+      <!-- Priority -->
+      <div class="px-4 py-4">
+        <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Prioridade</span>
+        <div class="flex flex-wrap gap-1">
+          <button
+            v-for="p in PRIORITIES"
+            :key="p.value"
+            class="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition"
+            :class="activeConversation.priority === p.value
+              ? p.activeBgClass
+              : 'bg-zinc-800/60 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'"
+            @click="setPriority(p.value)"
+          >
+            <Flag :size="9" />
+            {{ p.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="mx-4 h-px bg-zinc-800/60" />
+
+      <!-- Tags -->
+      <div class="px-4 py-4">
+        <div class="mb-2 flex items-center justify-between">
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Tags</span>
+          <button
+            class="text-[10px] text-zinc-700 transition hover:text-blue-400"
+            @click="addingTag = !addingTag; newTagInput = ''"
+          >
+            {{ addingTag ? 'Cancelar' : '+ Adicionar' }}
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-1">
+          <span
+            v-for="tag in (activeConversation.tags ?? [])"
+            :key="tag"
+            class="flex items-center gap-0.5 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-400"
+          >
+            {{ tag }}
+            <button class="ml-0.5 transition hover:text-red-400" @click="removeTag(tag)">
+              <X :size="9" />
+            </button>
+          </span>
+          <span
+            v-if="(activeConversation.tags ?? []).length === 0 && !addingTag"
+            class="text-[10px] text-zinc-700"
+          >
+            Sem tags
+          </span>
+        </div>
+        <div v-if="addingTag" class="mt-2 flex gap-1">
+          <input
+            ref="tagInputRef"
+            v-model="newTagInput"
+            type="text"
+            placeholder="nova tag..."
+            maxlength="32"
+            class="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1 text-[11px] text-zinc-200 outline-none transition focus:border-blue-500"
+            @keydown.enter.prevent="addTag"
+            @keydown.escape="addingTag = false"
+          />
+          <button
+            class="rounded-lg bg-blue-600 px-2.5 text-[11px] font-medium text-white transition hover:bg-blue-500"
+            @click="addTag"
+          >
+            Ok
+          </button>
+        </div>
+      </div>
+
+      <div class="mx-4 h-px bg-zinc-800/60" />
+
       <!-- Assignment -->
       <div class="px-4 py-4">
         <div class="mb-3 flex items-center justify-between">
@@ -488,14 +799,21 @@
 
         <!-- Agent -->
         <div class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-zinc-900">
-          <div
-            v-if="activeConversation.assignedTo"
-            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300"
-          >
-            {{ activeConversation.assignedTo.name[0].toUpperCase() }}
-          </div>
-          <div v-else class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-800">
-            <User :size="11" class="text-zinc-600" />
+          <div class="relative shrink-0">
+            <div
+              v-if="activeConversation.assignedTo"
+              class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold text-blue-300"
+            >
+              {{ activeConversation.assignedTo.name[0].toUpperCase() }}
+            </div>
+            <div v-else class="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800">
+              <User :size="11" class="text-zinc-600" />
+            </div>
+            <!-- Online indicator -->
+            <span
+              v-if="activeConversation.assignedTo && isAgentOnline(activeConversation.assignedTo.id)"
+              class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-zinc-950 bg-emerald-400"
+            />
           </div>
           <div class="min-w-0">
             <p class="truncate text-[11px] font-medium text-zinc-300">
@@ -528,6 +846,28 @@
       </div>
 
       <div class="mx-4 h-px bg-zinc-800/60" />
+
+      <!-- CSAT — shown for resolved conversations -->
+      <div v-if="activeConversation.status === 'RESOLVED'" class="px-4 py-4">
+        <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Satisfação (CSAT)</span>
+        <div class="flex gap-1">
+          <button
+            v-for="star in 5"
+            :key="star"
+            class="text-xl leading-none transition"
+            :class="(activeConversation.csatScore ?? 0) >= star ? 'text-amber-400' : 'text-zinc-700 hover:text-amber-400/60'"
+            :title="`${star} estrela${star > 1 ? 's' : ''}`"
+            @click="setCsat(star)"
+          >
+            ★
+          </button>
+        </div>
+        <p class="mt-1 text-[9px] text-zinc-700">
+          {{ activeConversation.csatScore ? `Nota: ${activeConversation.csatScore}/5` : 'Sem avaliação' }}
+        </p>
+      </div>
+
+      <div v-if="activeConversation.status === 'RESOLVED'" class="mx-4 h-px bg-zinc-800/60" />
 
       <!-- Channel -->
       <div class="px-4 py-4">
@@ -601,7 +941,6 @@
         @click.self="showNewConvModal = false"
       >
         <div class="flex w-full max-w-lg flex-col rounded-2xl border border-zinc-800/80 bg-zinc-900 shadow-2xl" style="max-height: 90vh;">
-          <!-- Header -->
           <div class="flex shrink-0 items-start justify-between p-6 pb-4">
             <div>
               <h2 class="text-base font-semibold text-white">Nova conversa</h2>
@@ -613,7 +952,6 @@
           </div>
 
           <div class="flex-1 overflow-y-auto px-6 pb-2">
-            <!-- Contato selecionado -->
             <div v-if="newConvForm.contactPhone" class="mb-4 flex items-center gap-3 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
               <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-xs font-bold text-blue-300">
                 {{ initials(newConvSelectedName || newConvForm.contactPhone) }}
@@ -627,7 +965,6 @@
               </button>
             </div>
 
-            <!-- Busca / inserção de número -->
             <div v-if="!newConvForm.contactPhone" class="mb-3">
               <div class="relative">
                 <Search :size="14" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -641,9 +978,7 @@
               </div>
             </div>
 
-            <!-- Lista de contatos -->
             <div v-if="!newConvForm.contactPhone" class="mb-4 space-y-1">
-              <!-- Botão: usar número digitado como contato manual -->
               <button
                 v-if="contactSearch.trim().length >= 6 && !contactSearchResults.find(c => c.phoneNumber === contactSearch.trim())"
                 class="flex w-full items-center gap-3 rounded-xl border border-dashed border-zinc-700 px-3 py-2.5 text-left transition hover:border-blue-500/40 hover:bg-blue-500/5"
@@ -684,32 +1019,14 @@
               </p>
             </div>
 
-            <!-- Formulário: Novo contato inline -->
             <div v-if="showNewContactForm && !newConvForm.contactPhone" class="mb-4 rounded-xl border border-zinc-700/60 bg-zinc-800/40 p-4">
               <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Novo contato</p>
               <div class="space-y-3">
-                <input
-                  v-model="newContactData.name"
-                  type="text"
-                  placeholder="Nome"
-                  class="w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none transition focus:border-blue-500"
-                />
-                <input
-                  v-model="newContactData.phoneNumber"
-                  type="text"
-                  placeholder="+5521999999999"
-                  class="w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none transition focus:border-blue-500"
-                />
+                <input v-model="newContactData.name" type="text" placeholder="Nome" class="w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none transition focus:border-blue-500" />
+                <input v-model="newContactData.phoneNumber" type="text" placeholder="+5521999999999" class="w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none transition focus:border-blue-500" />
                 <div class="flex gap-2">
-                  <button
-                    class="flex-1 rounded-xl border border-zinc-700 py-2 text-xs text-zinc-400 transition hover:bg-zinc-800"
-                    @click="showNewContactForm = false"
-                  >Cancelar</button>
-                  <button
-                    :disabled="savingContact || !newContactData.name.trim() || !newContactData.phoneNumber.trim()"
-                    class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2 text-xs font-medium text-white transition hover:bg-blue-500 disabled:opacity-50"
-                    @click="saveNewContact"
-                  >
+                  <button class="flex-1 rounded-xl border border-zinc-700 py-2 text-xs text-zinc-400 transition hover:bg-zinc-800" @click="showNewContactForm = false">Cancelar</button>
+                  <button :disabled="savingContact || !newContactData.name.trim() || !newContactData.phoneNumber.trim()" class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2 text-xs font-medium text-white transition hover:bg-blue-500 disabled:opacity-50" @click="saveNewContact">
                     <LoaderCircle v-if="savingContact" :size="12" class="animate-spin" />
                     Salvar contato
                   </button>
@@ -717,7 +1034,6 @@
               </div>
             </div>
 
-            <!-- Botão adicionar novo contato -->
             <button
               v-if="!showNewContactForm && !newConvForm.contactPhone"
               class="mb-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-700 py-2.5 text-xs text-zinc-500 transition hover:border-blue-500/40 hover:text-blue-400"
@@ -727,76 +1043,45 @@
               Adicionar novo contato
             </button>
 
-            <!-- Configurações da conversa (canal, dept, atendente) -->
             <div v-if="newConvForm.contactPhone" class="space-y-4">
-              <!-- Canal -->
               <div>
                 <label class="text-xs font-medium text-zinc-400">Canal</label>
-                <select
-                  v-model="newConvForm.instanceId"
-                  class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-                >
+                <select v-model="newConvForm.instanceId" class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
                   <option value="" disabled>Selecione um canal...</option>
-                  <option v-for="inst in connectedInstances" :key="inst.id" :value="inst.id">
-                    {{ inst.name }} · {{ providerLabel[inst.providerType] ?? inst.providerType }}
-                  </option>
+                  <option v-for="inst in connectedInstances" :key="inst.id" :value="inst.id">{{ inst.name }} · {{ providerLabel[inst.providerType] ?? inst.providerType }}</option>
                 </select>
                 <p v-if="connectedInstances.length === 0" class="mt-1 text-[11px] text-yellow-500">
                   Nenhum canal conectado. Conecte em <NuxtLink to="/whatsapp" class="underline">Canais</NuxtLink>.
                 </p>
               </div>
-
-              <!-- Departamento -->
               <div>
                 <label class="text-xs font-medium text-zinc-400">Departamento <span class="text-zinc-600">(opcional)</span></label>
-                <select
-                  v-model="newConvForm.departmentId"
-                  class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-                >
+                <select v-model="newConvForm.departmentId" class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
                   <option value="">Sem departamento</option>
                   <option v-for="dept in allDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
                 </select>
               </div>
-
-              <!-- Atendente -->
               <div>
                 <label class="text-xs font-medium text-zinc-400">Atendente <span class="text-zinc-600">(opcional)</span></label>
-                <select
-                  v-model="newConvForm.assignedToId"
-                  class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-                >
+                <select v-model="newConvForm.assignedToId" class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
                   <option value="">Não atribuído</option>
-                  <option v-for="user in transferUsers" :key="user.id" :value="user.id">{{ user.name }}</option>
+                  <option v-for="user in transferUsers" :key="user.id" :value="user.id">{{ user.name }}{{ isAgentOnline(user.id) ? ' ●' : '' }}</option>
                 </select>
               </div>
-
-              <!-- Template Meta (obrigatório para Meta Cloud API) -->
               <div v-if="isMetaInstance">
-                <label class="text-xs font-medium text-zinc-400">
-                  Template de mensagem <span class="text-red-400">*</span>
-                </label>
-                <p class="mt-0.5 text-[11px] text-zinc-600">
-                  Envio proativo via Meta exige template aprovado na Business Suite.
-                </p>
+                <label class="text-xs font-medium text-zinc-400">Template de mensagem <span class="text-red-400">*</span></label>
+                <p class="mt-0.5 text-[11px] text-zinc-600">Envio proativo via Meta exige template aprovado na Business Suite.</p>
                 <div v-if="loadingTemplates" class="mt-2 flex items-center gap-2 py-2 text-xs text-zinc-500">
                   <LoaderCircle :size="12" class="animate-spin" />
                   Carregando templates...
                 </div>
-                <div
-                  v-else-if="templates.length === 0"
-                  class="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[11px] text-amber-400"
-                >
-                  Nenhum template aprovado encontrado. Acesse a Meta Business Suite para criar templates.
+                <div v-else-if="templates.length === 0" class="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[11px] text-amber-400">
+                  Nenhum template aprovado encontrado.
                 </div>
                 <template v-else>
-                  <select
-                    v-model="selectedTemplate"
-                    class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-                  >
+                  <select v-model="selectedTemplate" class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
                     <option :value="null">Selecione um template...</option>
-                    <option v-for="t in templates" :key="t.id" :value="t">
-                      {{ t.name }} · {{ t.language }} ({{ t.category }})
-                    </option>
+                    <option v-for="t in templates" :key="t.id" :value="t">{{ t.name }} · {{ t.language }} ({{ t.category }})</option>
                   </select>
                   <div v-if="templateBodyText" class="mt-2 rounded-xl border border-zinc-700/40 bg-zinc-800/30 p-3">
                     <p class="mb-1 text-[10px] font-medium uppercase tracking-wider text-zinc-600">Prévia do corpo</p>
@@ -807,11 +1092,8 @@
             </div>
           </div>
 
-          <!-- Footer com erro e botão -->
           <div class="shrink-0 border-t border-zinc-800 p-6 pt-4">
-            <p v-if="newConvError" class="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              {{ newConvError }}
-            </p>
+            <p v-if="newConvError" class="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{{ newConvError }}</p>
             <button
               :disabled="startingConv || !newConvForm.contactPhone.trim() || !newConvForm.instanceId || (isMetaInstance && !selectedTemplate)"
               class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
@@ -847,13 +1129,9 @@
           </div>
 
           <div class="space-y-4">
-            <!-- Departamento primeiro — filtra atendentes -->
             <div>
               <label class="text-xs font-medium text-zinc-400">Departamento</label>
-              <select
-                v-model="transferForm.departmentId"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-              >
+              <select v-model="transferForm.departmentId" class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
                 <option value="">Sem departamento</option>
                 <option v-for="dept in allDepts" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
               </select>
@@ -864,19 +1142,23 @@
                 Atendente
                 <span v-if="transferForm.departmentId" class="ml-1 text-zinc-600">(do departamento)</span>
               </label>
-              <select
-                v-model="transferForm.assignedToId"
-                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
-              >
+              <select v-model="transferForm.assignedToId" class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
                 <option value="">Sem atribuição</option>
-                <option
-                  v-for="user in filteredTransferUsers"
-                  :key="user.id"
-                  :value="user.id"
-                >
-                  {{ user.name }}
+                <option v-for="user in filteredTransferUsers" :key="user.id" :value="user.id">
+                  {{ user.name }}{{ isAgentOnline(user.id) ? ' ●' : '' }}
                 </option>
               </select>
+            </div>
+
+            <!-- Online agents quick view -->
+            <div v-if="onlineAgents.length > 0" class="rounded-xl border border-zinc-800/80 bg-zinc-800/30 px-3 py-2.5">
+              <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Agentes online</p>
+              <div class="flex flex-wrap gap-2">
+                <div v-for="agent in onlineAgents" :key="agent.userId" class="flex items-center gap-1.5">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span class="text-[11px] text-zinc-400">{{ agent.name }}</span>
+                </div>
+              </div>
             </div>
 
             <p v-if="transferError" class="text-xs text-red-400">{{ transferError }}</p>
@@ -901,9 +1183,11 @@ import { ref, watch, onMounted, onUnmounted, nextTick, computed, reactive } from
 import {
   Search, CheckCheck, CheckCircle, RotateCcw, Send, MessageSquare,
   ArrowRightLeft, PanelRight, X, LoaderCircle, User, Layers,
-  Plus, ChevronDown, Trash2, Play, Paperclip, Mic, Clock,
+  Plus, ChevronDown, Trash2, Play, Pause, Paperclip, Mic, Clock,
+  StickyNote, Flag, Zap, AlertTriangle,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
+import { useCookie, useRuntimeConfig } from "#imports"
 
 definePageMeta({ layout: "chat", middleware: "auth" })
 useHead({ title: "Conversas" })
@@ -921,6 +1205,13 @@ interface ConvSummary {
   id: string
   status: "LEAD" | "OPEN" | "RESOLVED"
   lastMessageAt?: string | null
+  unreadCount?: number
+  priority?: string | null
+  tags?: string[]
+  slaBreachedAt?: string | null
+  firstResponseAt?: string | null
+  csatScore?: number | null
+  createdAt?: string
   contact: Contact
   assignedTo?: { id: string; name: string } | null
   department?: { id: string; name: string } | null
@@ -931,8 +1222,6 @@ interface FullConversation extends ConvSummary {
   instance: { id: string; name: string; providerType: string; phoneNumber?: string }
 }
 
-const beginningConv = ref(false)
-
 interface Message {
   id: string
   conversationId: string
@@ -941,6 +1230,7 @@ interface Message {
   content?: string | null
   mediaUrl?: string | null
   createdAt: string
+  isInternal?: boolean
   author?: { id: string; name: string } | null
 }
 
@@ -951,6 +1241,19 @@ interface ChannelInstance {
   connectionStatus: string
   phoneNumber?: string | null
 }
+
+interface PresenceAgent {
+  userId: string
+  name: string
+  status: "online" | "away" | "busy"
+  updatedAt: number
+}
+
+// ── Config ───────────────────────────────────────────────────────────────────
+
+const config = useRuntimeConfig()
+const apiUrl = (config.public.apiUrl as string | undefined) ?? "http://localhost:3333"
+const accessToken = useCookie<string | null>("access_token")
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -970,6 +1273,25 @@ const statusChanging = ref(false)
 const showInfoPanel = ref(true)
 const messagesContainerRef = ref<HTMLElement | null>(null)
 const scrollAnchorRef = ref<HTMLElement | null>(null)
+const beginningConv = ref(false)
+
+// SSE
+const sseCleanup = ref<(() => void) | null>(null)
+
+// Internal note
+const isInternalNote = ref(false)
+
+// Priority menu
+const showPriorityMenu = ref(false)
+
+// Tags
+const addingTag = ref(false)
+const newTagInput = ref("")
+const tagInputRef = ref<HTMLInputElement | null>(null)
+
+// Presence
+const onlineAgents = ref<PresenceAgent[]>([])
+let presenceInterval: ReturnType<typeof setInterval> | null = null
 
 // Transfer
 const showTransferModal = ref(false)
@@ -983,20 +1305,15 @@ const transferForm = reactive({ assignedToId: "", departmentId: "" })
 const showNewConvModal = ref(false)
 const startingConv = ref(false)
 const newConvError = ref("")
-const newConvForm = reactive({
-  contactPhone: "",
-  instanceId: "",
-  departmentId: "",
-  assignedToId: "",
-})
+const newConvForm = reactive({ contactPhone: "", instanceId: "", departmentId: "", assignedToId: "" })
 const newConvSelectedName = ref("")
 
-// Contatos no modal
+// Contacts
 const contactSearch = ref("")
 const contactSearchResults = ref<{ id: string; name?: string | null; phoneNumber: string }[]>([])
 const allContacts = ref<{ id: string; name?: string | null; phoneNumber: string }[]>([])
 
-// Novo contato inline
+// New contact inline
 const showNewContactForm = ref(false)
 const savingContact = ref(false)
 const newContactData = reactive({ name: "", phoneNumber: "+55" })
@@ -1005,28 +1322,23 @@ const connectedInstances = computed(() =>
   instances.value.filter((i) => i.connectionStatus === "CONNECTED")
 )
 
-// Conversation dropdown menu
 const convMenuOpen = ref<string | null>(null)
-
-// Media upload
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const uploadingMedia = ref(false)
-
-// Send error (e.g. window closed)
 const sendError = ref("")
-
-// Templates (Meta Cloud API — proactive outbound)
 const templates = ref<any[]>([])
 const loadingTemplates = ref(false)
 const selectedTemplate = ref<any | null>(null)
-
-// LGPD delete
 const deletingContact = ref(false)
-
-// Audio recording
 const isRecording = ref(false)
 let mediaRecorder: MediaRecorder | null = null
 let audioChunks: Blob[] = []
+
+// Saved replies
+const showRepliesPicker = ref(false)
+const savedReplies = ref<{ id: string; title: string; content: string }[]>([])
+const repliesSearch = ref("")
+const loadingReplies = ref(false)
 
 const TABS = [
   { label: "Leads", value: "LEADS" as const },
@@ -1034,6 +1346,38 @@ const TABS = [
   { label: "Minhas", value: "MINE" as const },
   { label: "Resolvidas", value: "RESOLVED" as const },
 ]
+
+const PRIORITIES = [
+  { value: "LOW",    label: "Baixa",   textClass: "text-blue-400",   activeBgClass: "bg-blue-500/15 text-blue-400 ring-1 ring-inset ring-blue-500/30" },
+  { value: "MEDIUM", label: "Média",   textClass: "text-zinc-400",   activeBgClass: "bg-zinc-700 text-zinc-300 ring-1 ring-inset ring-zinc-600/50" },
+  { value: "HIGH",   label: "Alta",    textClass: "text-orange-400", activeBgClass: "bg-orange-500/15 text-orange-400 ring-1 ring-inset ring-orange-500/30" },
+  { value: "URGENT", label: "Urgente", textClass: "text-red-400",    activeBgClass: "bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/30" },
+]
+
+// ── Priority helpers ──────────────────────────────────────────────────────────
+
+const priorityLabel: Record<string, string> = {
+  LOW: "Baixa", MEDIUM: "Média", HIGH: "Alta", URGENT: "Urgente",
+}
+
+const priorityStripClass: Record<string, string> = {
+  LOW: "bg-blue-500",
+  HIGH: "bg-orange-500",
+  URGENT: "bg-red-500",
+}
+
+const priorityBadgeClass: Record<string, string> = {
+  LOW:    "bg-blue-500/10 text-blue-400",
+  HIGH:   "bg-orange-500/10 text-orange-400",
+  URGENT: "bg-red-500/10 text-red-400",
+}
+
+const priorityHeaderClass: Record<string, string> = {
+  LOW:    "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20",
+  MEDIUM: "bg-zinc-800/60 text-zinc-500 hover:bg-zinc-800",
+  HIGH:   "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20",
+  URGENT: "bg-red-500/10 text-red-400 hover:bg-red-500/20",
+}
 
 // ── Provider labels ───────────────────────────────────────────────────────────
 
@@ -1050,7 +1394,14 @@ const providerLabel: Record<string, string> = {
 const openCount = computed(() => conversations.value.filter((c) => c.status === "OPEN").length)
 const leadCount = computed(() => conversations.value.filter((c) => c.status === "LEAD").length)
 
-// Filtra atendentes pelo departamento selecionado no modal de transferência
+const filteredReplies = computed(() => {
+  const q = repliesSearch.value.trim().toLowerCase()
+  if (!q) return savedReplies.value
+  return savedReplies.value.filter(
+    (r) => r.title.toLowerCase().includes(q) || r.content.toLowerCase().includes(q)
+  )
+})
+
 const filteredTransferUsers = computed(() => {
   if (!transferForm.departmentId) return transferUsers.value
   return transferUsers.value.filter(
@@ -1058,20 +1409,12 @@ const filteredTransferUsers = computed(() => {
   )
 })
 
-// Janela de 24h (Meta Cloud API): encerra 24h após a última mensagem INBOUND do contato
 const windowClosed = computed(() => {
   if (activeConversation.value?.instance?.providerType !== "META_CLOUD_API") return false
   const lastInbound = [...messages.value].reverse().find((m) => m.direction === "INBOUND")
-  if (!lastInbound) return true // nunca houve resposta do contato
+  if (!lastInbound) return true
   const expiry = new Date(new Date(lastInbound.createdAt).getTime() + 24 * 60 * 60 * 1000)
   return expiry < new Date()
-})
-
-const windowExpiresAt = computed(() => {
-  if (activeConversation.value?.instance?.providerType !== "META_CLOUD_API") return null
-  const lastInbound = [...messages.value].reverse().find((m) => m.direction === "INBOUND")
-  if (!lastInbound) return null
-  return new Date(new Date(lastInbound.createdAt).getTime() + 24 * 60 * 60 * 1000)
 })
 
 const selectedInstance = computed(() =>
@@ -1102,16 +1445,17 @@ watch(() => newConvForm.instanceId, async (id) => {
   const inst = instances.value.find((i) => i.id === id)
   if (inst?.providerType !== "META_CLOUD_API") return
   loadingTemplates.value = true
-  try {
-    templates.value = await api<any[]>(`/whatsapp/instances/${id}/templates`)
-  } catch { /* sem templates — usuário verá aviso */ }
+  try { templates.value = await api<any[]>(`/whatsapp/instances/${id}/templates`) } catch {}
   loadingTemplates.value = false
 })
 
-// ── Polling ───────────────────────────────────────────────────────────────────
+watch(addingTag, (val) => {
+  if (val) nextTick(() => tagInputRef.value?.focus())
+})
+
+// ── List polling ──────────────────────────────────────────────────────────────
 
 let listInterval: ReturnType<typeof setInterval> | null = null
-let messagesInterval: ReturnType<typeof setInterval> | null = null
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
@@ -1163,6 +1507,93 @@ function showDateSeparator(msg: Message, prev?: Message) {
   return new Date(msg.createdAt).toDateString() !== new Date(prev.createdAt).toDateString()
 }
 
+// ── SSE ───────────────────────────────────────────────────────────────────────
+
+function disconnectSSE() {
+  if (sseCleanup.value) {
+    sseCleanup.value()
+    sseCleanup.value = null
+  }
+}
+
+function handleSSEEvent(event: { type: string; data: any }, convId: string) {
+  if (activeConversationId.value !== convId) return
+
+  if (event.type === "message") {
+    const msg = event.data as Message
+    if (!messages.value.find((m) => m.id === msg.id)) {
+      if (msg.direction === "INBOUND" && !msg.isInternal && activeConversation.value?.status === "OPEN") {
+        playNotificationSound()
+        const contactName = activeConversation.value?.contact.name ?? activeConversation.value?.contact.phoneNumber ?? "Contato"
+        sendBrowserNotification(`Nova mensagem — ${contactName}`, msg.content ?? "Mídia recebida")
+      }
+      messages.value.push(msg)
+      scrollToBottom()
+    }
+  } else if (event.type === "conversation_updated") {
+    if (activeConversation.value) {
+      const upd = event.data as Partial<FullConversation>
+      if (upd.status !== undefined) activeConversation.value.status = upd.status as any
+      if (upd.priority !== undefined) activeConversation.value.priority = upd.priority
+      // Reload for assignedTo name resolution
+      if ((upd as any).assignedToId !== undefined) {
+        api<FullConversation>(`/conversations/${convId}`).then((fresh) => {
+          if (activeConversationId.value === convId) {
+            activeConversation.value = fresh
+          }
+        }).catch(() => {})
+      }
+    }
+  }
+}
+
+function connectSSE(convId: string) {
+  disconnectSSE()
+  let aborted = false
+  const controller = new AbortController()
+
+  sseCleanup.value = () => {
+    aborted = true
+    controller.abort()
+  }
+
+  async function run() {
+    while (!aborted) {
+      try {
+        const token = accessToken.value
+        const resp = await fetch(`${apiUrl}/conversations/${convId}/events`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: controller.signal,
+        })
+        if (!resp.ok || !resp.body) {
+          await new Promise((r) => setTimeout(r, 3000))
+          continue
+        }
+        const reader = resp.body.getReader()
+        const dec = new TextDecoder()
+        let buf = ""
+        while (!aborted) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += dec.decode(value, { stream: true })
+          const chunks = buf.split("\n\n")
+          buf = chunks.pop()!
+          for (const chunk of chunks) {
+            const dataLine = chunk.split("\n").find((l) => l.startsWith("data:"))
+            if (!dataLine) continue
+            try { handleSSEEvent(JSON.parse(dataLine.slice(5).trim()), convId) } catch {}
+          }
+        }
+      } catch {
+        if (aborted) return
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+    }
+  }
+
+  run()
+}
+
 // ── Load data ─────────────────────────────────────────────────────────────────
 
 let currentLoadId = 0
@@ -1178,8 +1609,8 @@ async function loadConversations() {
     if (debouncedSearch.value) params.set("search", debouncedSearch.value)
     if (filterDeptId.value) params.set("departmentId", filterDeptId.value)
 
-    const result = await api<ConvSummary[]>(`/conversations?${params}`)
-    if (loadId === currentLoadId) conversations.value = result
+    const result = await api<{ items: ConvSummary[]; nextCursor: string | null }>(`/conversations?${params}`)
+    if (loadId === currentLoadId) conversations.value = result.items
   } catch {
     // polling silent
   } finally {
@@ -1198,6 +1629,20 @@ async function loadSidebarData() {
   instances.value = instancesRes.status === "fulfilled" ? instancesRes.value : []
 }
 
+// ── Presence ──────────────────────────────────────────────────────────────────
+
+async function heartbeat() {
+  try { await api("/presence/heartbeat", { method: "POST", body: { status: "online" } }) } catch {}
+}
+
+async function loadPresence() {
+  try { onlineAgents.value = await api<PresenceAgent[]>("/presence") } catch {}
+}
+
+function isAgentOnline(userId: string) {
+  return onlineAgents.value.some((a) => a.userId === userId)
+}
+
 // ── Conversation select ───────────────────────────────────────────────────────
 
 async function selectConversation(id: string) {
@@ -1205,33 +1650,18 @@ async function selectConversation(id: string) {
   activeConversationId.value = id
   messages.value = []
   sendError.value = ""
-  clearInterval(messagesInterval!)
+  isInternalNote.value = false
+  disconnectSSE()
 
   try {
     activeConversation.value = await api<FullConversation>(`/conversations/${id}`)
     messages.value = activeConversation.value.messages as unknown as Message[]
-    scrollToBottom()
+    scrollToBottom(false)
   } catch {
     activeConversation.value = null
   }
 
-  messagesInterval = setInterval(pollMessages, 3000)
-}
-
-async function pollMessages() {
-  if (!activeConversationId.value) return
-  try {
-    const fresh = await api<Message[]>(`/conversations/${activeConversationId.value}/messages`)
-    if (fresh.length !== messages.value.length) {
-      const newOnes = fresh.slice(messages.value.length)
-      const hasNewInbound = newOnes.some(m => m.direction === "INBOUND")
-      if (hasNewInbound && activeConversation.value?.status === "OPEN") {
-        playNotificationSound()
-      }
-      messages.value = fresh
-      scrollToBottom()
-    }
-  } catch {}
+  connectSSE(id)
 }
 
 function scrollToBottom(smooth = true) {
@@ -1241,6 +1671,7 @@ function scrollToBottom(smooth = true) {
 // ── Send ──────────────────────────────────────────────────────────────────────
 
 async function sendMessage() {
+  if (isInternalNote.value) { await sendNote(); return }
   const content = inputText.value.trim()
   if (!content || sending.value || !activeConversationId.value) return
   sendError.value = ""
@@ -1268,18 +1699,93 @@ async function sendMessage() {
     await loadConversations()
   } catch (err: any) {
     messages.value = messages.value.filter((m) => m.id !== optimistic.id)
-    if (err?.data?.code === "WINDOW_CLOSED") {
-      sendError.value = err.data.error
-    } else {
-      inputText.value = content
-    }
+    if (err?.data?.code === "WINDOW_CLOSED") sendError.value = err.data.error
+    else inputText.value = content
   } finally {
     sending.value = false
     scrollToBottom()
   }
 }
 
-// ── Iniciar atendimento (Lead → Open) ─────────────────────────────────────────
+async function sendNote() {
+  const content = inputText.value.trim()
+  if (!content || sending.value || !activeConversationId.value) return
+  sending.value = true
+  inputText.value = ""
+
+  const optimistic: Message = {
+    id: `opt-note-${Date.now()}`,
+    conversationId: activeConversationId.value,
+    direction: "OUTBOUND",
+    type: "TEXT",
+    content,
+    createdAt: new Date().toISOString(),
+    isInternal: true,
+  }
+  messages.value.push(optimistic)
+  scrollToBottom()
+
+  try {
+    const note = await api<Message>(`/conversations/${activeConversationId.value}/notes`, {
+      method: "POST",
+      body: { content },
+    })
+    const idx = messages.value.findIndex((m) => m.id === optimistic.id)
+    if (idx !== -1) messages.value.splice(idx, 1, note)
+  } catch {
+    messages.value = messages.value.filter((m) => m.id !== optimistic.id)
+    inputText.value = content
+  } finally {
+    sending.value = false
+    scrollToBottom()
+  }
+}
+
+// ── Tags ──────────────────────────────────────────────────────────────────────
+
+async function saveTags(newTags: string[]) {
+  if (!activeConversationId.value) return
+  try {
+    await api(`/conversations/${activeConversationId.value}/tags`, {
+      method: "PATCH",
+      body: { tags: newTags },
+    })
+    if (activeConversation.value) activeConversation.value.tags = newTags
+    const listConv = conversations.value.find((c) => c.id === activeConversationId.value)
+    if (listConv) listConv.tags = newTags
+  } catch {}
+}
+
+async function addTag() {
+  const tag = newTagInput.value.trim().toLowerCase().replace(/\s+/g, "-")
+  if (!tag) return
+  const current = activeConversation.value?.tags ?? []
+  if (!current.includes(tag)) await saveTags([...current, tag])
+  newTagInput.value = ""
+  addingTag.value = false
+}
+
+async function removeTag(tag: string) {
+  const current = activeConversation.value?.tags ?? []
+  await saveTags(current.filter((t) => t !== tag))
+}
+
+// ── Priority ──────────────────────────────────────────────────────────────────
+
+async function setPriority(priority: string) {
+  if (!activeConversationId.value) return
+  try {
+    await api(`/conversations/${activeConversationId.value}/priority`, {
+      method: "PATCH",
+      body: { priority },
+    })
+    if (activeConversation.value) activeConversation.value.priority = priority
+    const listConv = conversations.value.find((c) => c.id === activeConversationId.value)
+    if (listConv) listConv.priority = priority
+  } catch {}
+}
+
+// ── Iniciar atendimento ───────────────────────────────────────────────────────
 
 async function beginConversation() {
   if (!activeConversationId.value || beginningConv.value) return
@@ -1287,8 +1793,6 @@ async function beginConversation() {
   try {
     await api(`/conversations/${activeConversationId.value}/begin`, { method: "POST" })
     if (activeConversation.value) activeConversation.value.status = "OPEN"
-    await Promise.all([loadConversations(), pollMessages()])
-    // Muda para aba "Abertas" para mostrar a conversa recém-iniciada
     activeTab.value = "ALL"
     await loadConversations()
   } catch {
@@ -1308,11 +1812,21 @@ async function changeStatus(status: "OPEN" | "RESOLVED") {
       body: { status },
     })
     if (activeConversation.value) activeConversation.value.status = status
-    await Promise.all([loadConversations(), pollMessages()])
+    await loadConversations()
   } catch {
   } finally {
     statusChanging.value = false
   }
+}
+
+// ── CSAT ──────────────────────────────────────────────────────────────────────
+
+async function setCsat(score: number) {
+  if (!activeConversationId.value) return
+  try {
+    await api(`/conversations/${activeConversationId.value}/csat`, { method: "PATCH", body: { score } })
+    if (activeConversation.value) activeConversation.value.csatScore = score
+  } catch {}
 }
 
 // ── Transfer ──────────────────────────────────────────────────────────────────
@@ -1347,7 +1861,7 @@ async function confirmTransfer() {
   }
 }
 
-// ── Nova conversa outbound ────────────────────────────────────────────────────
+// ── Nova conversa ─────────────────────────────────────────────────────────────
 
 async function openNewConvModal() {
   newConvForm.contactPhone = ""
@@ -1362,7 +1876,6 @@ async function openNewConvModal() {
   templates.value = []
   Object.assign(newContactData, { name: "", phoneNumber: "+55" })
   showNewConvModal.value = true
-  // Carrega contatos para o modal
   try {
     allContacts.value = await api<{ id: string; name?: string | null; phoneNumber: string }[]>("/contacts")
     contactSearchResults.value = allContacts.value.slice(0, 30)
@@ -1374,14 +1887,9 @@ async function openNewConvModal() {
 
 function onContactSearchInput() {
   const q = contactSearch.value.trim().toLowerCase()
-  if (!q) {
-    contactSearchResults.value = allContacts.value.slice(0, 30)
-    return
-  }
+  if (!q) { contactSearchResults.value = allContacts.value.slice(0, 30); return }
   contactSearchResults.value = allContacts.value.filter(
-    (c) =>
-      (c.name ?? "").toLowerCase().includes(q) ||
-      c.phoneNumber.includes(q)
+    (c) => (c.name ?? "").toLowerCase().includes(q) || c.phoneNumber.includes(q)
   ).slice(0, 20)
 }
 
@@ -1392,8 +1900,7 @@ function selectContact(c: { id: string; name?: string | null; phoneNumber: strin
 }
 
 function selectManualPhone(phone: string) {
-  const normalized = phone.startsWith("+") ? phone : `+55${phone.replace(/\D/g, "")}`
-  newConvForm.contactPhone = normalized
+  newConvForm.contactPhone = phone.startsWith("+") ? phone : `+55${phone.replace(/\D/g, "")}`
   newConvSelectedName.value = ""
 }
 
@@ -1444,10 +1951,7 @@ async function doStartConversation() {
       body.templateName = selectedTemplate.value.name
       body.languageCode = selectedTemplate.value.language
     }
-    const conversation = await api<{ id: string }>("/conversations/start", {
-      method: "POST",
-      body,
-    })
+    const conversation = await api<{ id: string }>("/conversations/start", { method: "POST", body })
     showNewConvModal.value = false
     await loadConversations()
     await selectConversation(conversation.id)
@@ -1471,6 +1975,7 @@ async function deleteContact() {
     activeConversationId.value = null
     activeConversation.value = null
     messages.value = []
+    disconnectSSE()
     await loadConversations()
   } catch (err: any) {
     alert(err?.data?.error ?? "Não foi possível apagar os dados do contato.")
@@ -1490,6 +1995,15 @@ function autoResize(e: Event) {
 }
 
 // ── Notification sound ────────────────────────────────────────────────────────
+
+function sendBrowserNotification(title: string, body: string) {
+  if (typeof window === "undefined" || !("Notification" in window)) return
+  if (Notification.permission !== "granted") return
+  if (document.visibilityState === "visible") return
+  try {
+    new Notification(title, { body, icon: "/favicon.ico", tag: "omniflow-msg" })
+  } catch {}
+}
 
 function playNotificationSound() {
   try {
@@ -1515,7 +2029,6 @@ async function onFileSelected(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file || !activeConversationId.value) return
   ;(e.target as HTMLInputElement).value = ""
-
   uploadingMedia.value = true
   try {
     const base64 = await new Promise<string>((resolve, reject) => {
@@ -1532,23 +2045,104 @@ async function onFileSelected(e: Event) {
     scrollToBottom()
     await loadConversations()
   } catch (err: any) {
-    if (err?.data?.code === "WINDOW_CLOSED") {
-      sendError.value = err.data.error
-    } else {
-      alert(err?.data?.error ?? "Falha ao enviar arquivo.")
-    }
+    if (err?.data?.code === "WINDOW_CLOSED") sendError.value = err.data.error
+    else alert(err?.data?.error ?? "Falha ao enviar arquivo.")
   } finally {
     uploadingMedia.value = false
   }
 }
 
+// ── Audio player ──────────────────────────────────────────────────────────────
+
+const AUDIO_SPEEDS = [1, 1.5, 2] as const
+type AudioSpeed = typeof AUDIO_SPEEDS[number]
+
+interface AudioPlayerState {
+  playing: boolean
+  currentTime: number
+  duration: number
+  speed: AudioSpeed
+}
+
+const audioPlayerState = reactive<Record<string, AudioPlayerState>>({})
+const audioEls = new Map<string, HTMLAudioElement>()
+
+function getAudioState(id: string): AudioPlayerState {
+  if (!audioPlayerState[id]) {
+    audioPlayerState[id] = { playing: false, currentTime: 0, duration: 0, speed: 1 }
+  }
+  return audioPlayerState[id]
+}
+
+function cycleSpeed(id: string) {
+  const state = getAudioState(id)
+  const idx   = AUDIO_SPEEDS.indexOf(state.speed)
+  state.speed = AUDIO_SPEEDS[(idx + 1) % AUDIO_SPEEDS.length]
+  const el = audioEls.get(id)
+  if (el) el.playbackRate = state.speed
+}
+
+function speedLabel(id: string): string {
+  const s = getAudioState(id).speed
+  return s === 1 ? "1×" : s === 1.5 ? "1.5×" : "2×"
+}
+
+function registerAudio(id: string, el: HTMLAudioElement | null) {
+  if (!el) { audioEls.delete(id); return }
+  if (audioEls.get(id) === el) return
+  audioEls.set(id, el)
+  const state = getAudioState(id)
+  el.addEventListener("loadedmetadata", () => { state.duration = isFinite(el.duration) ? el.duration : 0 })
+  el.addEventListener("durationchange",  () => { state.duration = isFinite(el.duration) ? el.duration : 0 })
+  el.addEventListener("timeupdate",      () => { state.currentTime = el.currentTime })
+  el.addEventListener("ended",           () => { state.playing = false; state.currentTime = 0; el.currentTime = 0 })
+}
+
+function toggleAudio(id: string) {
+  const el = audioEls.get(id)
+  if (!el) return
+  const state = getAudioState(id)
+  if (state.playing) {
+    el.pause()
+    state.playing = false
+  } else {
+    audioEls.forEach((other, otherId) => {
+      if (otherId !== id && !other.paused) {
+        other.pause()
+        getAudioState(otherId).playing = false
+      }
+    })
+    el.play().catch(() => {})
+    state.playing = true
+  }
+}
+
+function seekAudio(id: string, e: MouseEvent) {
+  const el    = audioEls.get(id)
+  const state = getAudioState(id)
+  if (!el || !state.duration) return
+  const bar  = e.currentTarget as HTMLElement
+  const rect = bar.getBoundingClientRect()
+  el.currentTime = Math.max(0, Math.min(((e.clientX - rect.left) / rect.width) * state.duration, state.duration))
+}
+
+function audioProgress(id: string): number {
+  const s = audioPlayerState[id]
+  if (!s || !s.duration) return 0
+  return Math.min((s.currentTime / s.duration) * 100, 100)
+}
+
+function fmtAudioTime(sec: number): string {
+  if (!sec || isNaN(sec) || !isFinite(sec)) return "0:00"
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
+
 // ── Audio recording ───────────────────────────────────────────────────────────
 
 async function toggleRecording() {
-  if (isRecording.value) {
-    mediaRecorder?.stop()
-    return
-  }
+  if (isRecording.value) { mediaRecorder?.stop(); return }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     audioChunks = []
@@ -1596,7 +2190,6 @@ async function quickFinish(conv: ConvSummary) {
     await api(`/conversations/${conv.id}/status`, { method: "PATCH", body: { status: "RESOLVED" } })
     if (activeConversation.value?.id === conv.id) activeConversation.value.status = "RESOLVED"
     await loadConversations()
-    if (activeConversation.value?.id === conv.id) await pollMessages()
   } catch {}
 }
 
@@ -1608,6 +2201,7 @@ async function deleteConv(conv: ConvSummary) {
       activeConversationId.value = null
       activeConversation.value = null
       messages.value = []
+      disconnectSSE()
     }
     conversations.value = conversations.value.filter((c) => c.id !== conv.id)
   } catch {}
@@ -1631,18 +2225,57 @@ watch(filterDeptId, () => {
   loadConversations()
 })
 
-function closeMenuOnClickOutside() { convMenuOpen.value = null }
+async function openRepliesPicker() {
+  if (savedReplies.value.length === 0) {
+    loadingReplies.value = true
+    try { savedReplies.value = await api<{ id: string; title: string; content: string }[]>("/saved-replies") } catch {}
+    loadingReplies.value = false
+  }
+  repliesSearch.value = ""
+  showRepliesPicker.value = !showRepliesPicker.value
+}
 
-onMounted(() => {
+function insertReply(content: string) {
+  inputText.value = content
+  showRepliesPicker.value = false
+  nextTick(() => {
+    const el = document.querySelector<HTMLTextAreaElement>("textarea[placeholder]")
+    el?.focus()
+    if (el) {
+      el.style.height = "auto"
+      el.style.height = `${Math.min(el.scrollHeight, 128)}px`
+    }
+  })
+}
+
+function closeMenuOnClickOutside() {
+  convMenuOpen.value = null
+  showPriorityMenu.value = false
+  showRepliesPicker.value = false
+}
+
+onMounted(async () => {
   loadConversations()
   loadSidebarData()
-  listInterval = setInterval(loadConversations, 5000)
+  listInterval = setInterval(loadConversations, 8000)
   document.addEventListener("click", closeMenuOnClickOutside)
+
+  if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {})
+  }
+
+  await heartbeat()
+  await loadPresence()
+  presenceInterval = setInterval(async () => {
+    await heartbeat()
+    await loadPresence()
+  }, 45000)
 })
 
 onUnmounted(() => {
   clearInterval(listInterval!)
-  clearInterval(messagesInterval!)
+  clearInterval(presenceInterval!)
+  disconnectSSE()
   document.removeEventListener("click", closeMenuOnClickOutside)
 })
 </script>

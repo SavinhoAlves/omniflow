@@ -507,4 +507,11 @@ export class ConversationsService {
       }),
     ]);
   }
+
+  async setCsat(conversationId: string, score: number) {
+    await prisma.conversation.updateMany({
+      where: { id: conversationId },
+      data: { csatScore: score },
+    });
+  }
 }

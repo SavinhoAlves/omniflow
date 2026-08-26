@@ -70,14 +70,21 @@ const initials = computed<string>(() => {
 })
 
 const PAGE_MAP: Record<string, { title: string; subtitle: string }> = {
-  "/dashboard":     { title: "Dashboard",             subtitle: "Visão geral do atendimento" },
-  "/conversations": { title: "Conversas",             subtitle: "Caixa de entrada unificada" },
-  "/whatsapp":      { title: "Canais",                subtitle: "Números de WhatsApp conectados" },
-  "/departments": { title: "Departamentos",          subtitle: "Organização da equipe em setores" },
-  "/users":       { title: "Atendentes",             subtitle: "Gestão da equipe de atendimento" },
-  "/workflows":   { title: "Fluxo de atendimento",  subtitle: "Automação e direcionamento de conversas" },
-  "/reports":     { title: "Relatórios",             subtitle: "Métricas e desempenho do atendimento" },
-  "/settings":    { title: "Configurações",          subtitle: "Preferências e dados da empresa" },
+  "/dashboard":          { title: "Dashboard",            subtitle: "Visão geral do atendimento" },
+  "/conversations":      { title: "Conversas",            subtitle: "Caixa de entrada unificada" },
+  "/whatsapp":           { title: "Canais",               subtitle: "Números de WhatsApp conectados" },
+  "/departments":        { title: "Departamentos",        subtitle: "Organização da equipe em setores" },
+  "/users":              { title: "Atendentes",           subtitle: "Gestão da equipe de atendimento" },
+  "/workflows":          { title: "Fluxo de atendimento", subtitle: "Automação e direcionamento de conversas" },
+  "/workflows/builder":  { title: "Editor de fluxo",     subtitle: "Configure o bot e as regras de direcionamento" },
+  "/contacts":           { title: "Contatos",             subtitle: "Base de clientes e histórico de atendimentos" },
+  "/saved-replies":      { title: "Respostas Rápidas",   subtitle: "Atalhos de texto para agilizar o atendimento" },
+  "/campaigns":          { title: "Campanhas",            subtitle: "Envios em massa e comunicações proativas" },
+  "/templates":          { title: "Templates",            subtitle: "Templates HSM aprovados pela Meta" },
+  "/automations":        { title: "Automações",           subtitle: "Regras automáticas e SLA" },
+  "/reports":            { title: "Relatórios",           subtitle: "Métricas e desempenho do atendimento" },
+  "/logs":               { title: "Log de atividade",    subtitle: "Histórico de ações do sistema" },
+  "/settings":           { title: "Configurações",        subtitle: "Preferências e dados da empresa" },
 }
 
 const pageInfo = computed(() => PAGE_MAP[route.path] ?? { title: "OmniFlow", subtitle: "" })

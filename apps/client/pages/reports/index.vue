@@ -2,8 +2,18 @@
   <div class="space-y-6">
 
     <!-- Period selector -->
-    <div class="flex items-center justify-between">
-      <p class="text-sm text-zinc-500">{{ periodLabels[period] }}</p>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <p class="text-sm text-zinc-500">{{ periodLabels[period] }}</p>
+        <button
+          class="flex items-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-400 transition hover:border-zinc-600 hover:text-white"
+          title="Exportar CSV"
+          @click="exportCsv"
+        >
+          <Download :size="13" />
+          Exportar CSV
+        </button>
+      </div>
       <div class="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
         <button
           v-for="p in periods"
@@ -229,7 +239,7 @@
 <script setup lang="ts">
 import {
   MessageSquare, CheckCircle, UserPlus, Clock,
-  ArrowDownLeft, ArrowUpRight,
+  ArrowDownLeft, ArrowUpRight, Download,
 } from "lucide-vue-next"
 import { useApi } from "~/composables/useApi"
 
@@ -351,5 +361,57 @@ function showLabel(i: number, total: number): boolean {
   if (total <= 9)  return true
   if (total <= 31) return i % 5 === 0 || i === total - 1
   return i % 15 === 0 || i === total - 1
+}
+
+function exportCsv() {
+  const rows: string[][] = []
+  const sep = ";"
+  const now = new Date().toLocaleString("pt-BR")
+
+  rows.push([`Relatório OmniFlow — ${periodLabels[period.value]}`, `Gerado em: ${now}`])
+  rows.push([])
+
+  if (overview.value) {
+    rows.push(["== Visão Geral =="])
+    rows.push(["Métrica", "Valor"])
+    rows.push(["Conversas no período",   String(overview.value.totalConversations)])
+    rows.push(["Ainda abertas",           String(overview.value.openConversations)])
+    rows.push(["Resolvidas",             String(overview.value.resolvedInPeriod)])
+    rows.push(["Novos contatos",         String(overview.value.newContacts)])
+    rows.push(["Msgs recebidas",         String(overview.value.messagesInbound)])
+    rows.push(["Msgs enviadas",          String(overview.value.messagesOutbound)])
+    rows.push(["Tempo médio resolução",  formatDuration(overview.value.avgResolutionMinutes)])
+    rows.push(["Taxa de resolução (%)",  String(resolutionRate.value)])
+    rows.push([])
+  }
+
+  if (volume.value.length) {
+    rows.push(["== Volume por Dia =="])
+    rows.push(["Data", "Total"])
+    volume.value.forEach((d) => rows.push([d.date, String(d.total)]))
+    rows.push([])
+  }
+
+  if (agents.value.length) {
+    rows.push(["== Atendentes =="])
+    rows.push(["Atendente", "Total", "Resolvidos"])
+    agents.value.forEach((a) => rows.push([a.agentName, String(a.total), String(a.resolved)]))
+    rows.push([])
+  }
+
+  if (departments.value.length) {
+    rows.push(["== Departamentos =="])
+    rows.push(["Departamento", "Total", "Resolvidos"])
+    departments.value.forEach((d) => rows.push([d.departmentName, String(d.total), String(d.resolved)]))
+  }
+
+  const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(sep)).join("\n")
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement("a")
+  a.href     = url
+  a.download = `relatorio-${period.value}-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 </script>

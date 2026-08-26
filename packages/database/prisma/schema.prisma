@@ -354,6 +354,8 @@ model Conversation {
   // T6.3 — SLA tracking
   firstResponseAt  DateTime?          @map("first_response_at")   // quando agente respondeu pela 1ª vez
   slaBreachedAt    DateTime?          @map("sla_breached_at")     // quando o SLA foi violado (null = dentro do prazo)
+  // CSAT — nota de 1 a 5 registrada pelo atendente após resolução
+  csatScore        Int?               @map("csat_score")
   messages         Message[]
   scheduledMessages ScheduledMessage[]
   aiMeta           AiConversationMeta?
