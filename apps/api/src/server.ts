@@ -30,6 +30,7 @@ import { activityLogRoutes } from "./modules/activity-log/activity-log.routes";
 import { contractsRoutes } from "./modules/contracts/contracts.routes";
 import { installationsRoutes } from "./modules/installations/installations.routes";
 import { ticketsRoutes } from "./modules/tickets/tickets.routes";
+import { crmRoutes } from "./modules/crm/crm.routes";
 import { tenantMiddleware } from "./middlewares/tenant.middleware";
 import { rateLimitPlugin } from "./plugins/rate-limit.plugin";
 import { securityPlugin } from "./plugins/security.plugin";
@@ -161,6 +162,7 @@ export function buildServer() {
   app.register(contractsRoutes);
   app.register(installationsRoutes);
   app.register(ticketsRoutes);
+  app.register(crmRoutes);
 
   return app;
 }

@@ -21,13 +21,13 @@
         <!-- Nav link -->
         <div v-else class="relative">
           <span
-            v-if="isActive(item.path!)"
+            v-if="isActive(item.path!, item.exact)"
             class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r-full bg-blue-500"
           />
           <NuxtLink
             :to="item.path!"
             class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 text-sm transition-all hover:bg-zinc-800 hover:text-white"
-            active-class="!bg-zinc-800 !text-white"
+            :class="isActive(item.path!, item.exact) ? '!bg-zinc-800 !text-white' : ''"
           >
             <component :is="item.icon" :size="18" class="shrink-0" />
             <span class="font-medium flex-1 truncate">{{ item.name }}</span>
@@ -38,6 +38,14 @@
               :class="leadBadge > 0 ? 'bg-amber-500' : 'bg-blue-600'"
             >
               {{ inboxBadge > 99 ? '99+' : inboxBadge }}
+            </span>
+            <!-- Tarefas atrasadas do usuário -->
+            <span
+              v-if="item.path === '/crm/tasks' && overdueTasks > 0"
+              class="min-w-[18px] rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white tabular-nums"
+              :title="`${overdueTasks} tarefa(s) atrasada(s)`"
+            >
+              {{ overdueTasks > 99 ? '99+' : overdueTasks }}
             </span>
           </NuxtLink>
         </div>
@@ -55,6 +63,7 @@ import {
   LayoutDashboard, MessageSquare, MessageCircle, Network,
   Users, Workflow, BarChart2, Settings, ClipboardList,
   Megaphone, Zap, BookUser, MessageCircleDashed, LayoutList,
+  TrendingUp, SquareKanban, ListTodo,
 } from "lucide-vue-next"
 import { useApi } from "../composables/useApi"
 
@@ -63,13 +72,17 @@ const api = useApi()
 
 type NavItem =
   | { type: "section"; name: string }
-  | { type?: undefined; name: string; path: string; icon: any }
+  | { type?: undefined; name: string; path: string; icon: any; exact?: boolean }
 
 const menu: NavItem[] = [
   { name: "Dashboard",            path: "/dashboard",       icon: LayoutDashboard },
   { name: "Conversas",            path: "/conversations",   icon: MessageSquare },
-  { type: "section", name: "Gestão" },
+  { type: "section", name: "CRM" },
+  { name: "Visão comercial",      path: "/crm",             icon: TrendingUp, exact: true },
+  { name: "Funil de vendas",      path: "/crm/pipeline",    icon: SquareKanban },
+  { name: "Tarefas",              path: "/crm/tasks",       icon: ListTodo },
   { name: "Contatos",             path: "/contacts",        icon: BookUser },
+  { type: "section", name: "Gestão" },
   { name: "Canais",               path: "/whatsapp",        icon: MessageCircle },
   { name: "Departamentos",        path: "/departments",     icon: Network },
   { name: "Atendentes",           path: "/users",           icon: Users },
@@ -86,7 +99,10 @@ const menu: NavItem[] = [
   { name: "Configurações",        path: "/settings",        icon: Settings },
 ]
 
-function isActive(path: string) {
+function isActive(path: string, exact = false) {
+  if (exact) return route.path === path
+  // /crm/deals/:id pertence ao funil de vendas
+  if (path === "/crm/pipeline" && route.path.startsWith("/crm/deals/")) return true
   return route.path === path || route.path.startsWith(path + "/")
 }
 
@@ -94,6 +110,7 @@ function isActive(path: string) {
 
 const inboxBadge = ref(0)
 const leadBadge  = ref(0)
+const overdueTasks = ref(0)
 
 async function fetchInboxCount() {
   try {
@@ -106,6 +123,12 @@ async function fetchInboxCount() {
     leadBadge.value  = leadItems.length
     inboxBadge.value = leadItems.length + openItems.length
   } catch {}
+  try {
+    overdueTasks.value = (await api<{ count: number }>("/crm/tasks/overdue-count")).count
+  } catch {
+    // Sem permissão de CRM: o badge simplesmente não aparece
+    overdueTasks.value = 0
+  }
 }
 
 let badgeInterval: ReturnType<typeof setInterval> | null = null

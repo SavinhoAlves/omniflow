@@ -27,6 +27,11 @@ const TENANT_SCOPED_MODELS = new Set([
   "Workflow",
   "Contact",
   "Conversation",
+  "Pipeline",
+  "PipelineStage",
+  "Deal",
+  "DealActivity",
+  "LostReason",
 ]);
 
 function createPrismaClient() {

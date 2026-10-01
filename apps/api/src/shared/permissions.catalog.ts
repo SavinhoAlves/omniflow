@@ -33,6 +33,10 @@ export const PERMISSIONS = {
   CAMPAIGNS_CREATE: "campaigns.create",
   CAMPAIGNS_VIEW: "campaigns.view",
 
+  // CRM — funil de vendas, negócios e tarefas
+  CRM_VIEW: "crm.view",
+  CRM_MANAGE: "crm.manage", // configurar funis, etapas e motivos de perda
+
   // Relatórios e Financeiro
   REPORTS_VIEW: "reports.view",
   BILLING_MANAGE: "billing.manage",
@@ -92,6 +96,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "MEMBER", PermissionKey[
     PERMISSIONS.WORKFLOWS_VIEW,
     PERMISSIONS.CAMPAIGNS_CREATE,
     PERMISSIONS.CAMPAIGNS_VIEW,
+    PERMISSIONS.CRM_VIEW,
+    PERMISSIONS.CRM_MANAGE,
     PERMISSIONS.REPORTS_VIEW,
     PERMISSIONS.SETTINGS_MANAGE,
     PERMISSIONS.LOGS_VIEW,
@@ -105,6 +111,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"ADMIN" | "MEMBER", PermissionKey[
     PERMISSIONS.WHATSAPP_VIEW_INSTANCES,
     PERMISSIONS.WORKFLOWS_VIEW,
     PERMISSIONS.CAMPAIGNS_VIEW,
+    PERMISSIONS.CRM_VIEW,
     PERMISSIONS.REPORTS_VIEW,
   ],
 };

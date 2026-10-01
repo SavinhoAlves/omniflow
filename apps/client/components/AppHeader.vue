@@ -77,7 +77,12 @@ const PAGE_MAP: Record<string, { title: string; subtitle: string }> = {
   "/users":              { title: "Atendentes",           subtitle: "Gestão da equipe de atendimento" },
   "/workflows":          { title: "Fluxo de atendimento", subtitle: "Automação e direcionamento de conversas" },
   "/workflows/builder":  { title: "Editor de fluxo",     subtitle: "Configure o bot e as regras de direcionamento" },
-  "/contacts":           { title: "Contatos",             subtitle: "Base de clientes e histórico de atendimentos" },
+  "/contacts":           { title: "Contatos",             subtitle: "Visão 360° de cada cliente: negócios, conversas e consentimento" },
+  "/crm":                { title: "Visão comercial",      subtitle: "Resultados de vendas ligados ao atendimento" },
+  "/crm/pipeline":       { title: "Funil de vendas",      subtitle: "Negócios em andamento, do primeiro contato ao fechamento" },
+  "/crm/tasks":          { title: "Tarefas",              subtitle: "Ligações, mensagens, visitas e follow-ups de cada negócio" },
+  "/crm/settings":       { title: "Configurar funil",     subtitle: "Funis de venda, etapas e motivos de perda" },
+  "/crm/deals":          { title: "Ficha do negócio",     subtitle: "Histórico completo, conversas e próximas ações" },
   "/saved-replies":      { title: "Respostas Rápidas",   subtitle: "Atalhos de texto para agilizar o atendimento" },
   "/campaigns":          { title: "Campanhas",            subtitle: "Envios em massa e comunicações proativas" },
   "/templates":          { title: "Templates",            subtitle: "Templates HSM aprovados pela Meta" },
@@ -87,7 +92,14 @@ const PAGE_MAP: Record<string, { title: string; subtitle: string }> = {
   "/settings":           { title: "Configurações",        subtitle: "Preferências e dados da empresa" },
 }
 
-const pageInfo = computed(() => PAGE_MAP[route.path] ?? { title: "OmniFlow", subtitle: "" })
+// Rotas dinâmicas (ex.: /crm/deals/:id) caem no prefixo mais longo cadastrado
+const pageInfo = computed(() => {
+  if (PAGE_MAP[route.path]) return PAGE_MAP[route.path]
+  const prefix = Object.keys(PAGE_MAP)
+    .filter((p) => route.path.startsWith(p + "/"))
+    .sort((a, b) => b.length - a.length)[0]
+  return prefix ? PAGE_MAP[prefix] : { title: "OmniFlow", subtitle: "" }
+})
 
 async function logout() {
   try {

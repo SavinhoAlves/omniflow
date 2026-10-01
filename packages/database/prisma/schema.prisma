@@ -173,6 +173,11 @@ model Company {
   campaigns         Campaign[]
   subscription      Subscription?
   usageMeters       UsageMeter[]
+  pipelines         Pipeline[]
+  pipelineStages    PipelineStage[]
+  deals             Deal[]
+  dealActivities    DealActivity[]
+  lostReasons       LostReason[]
 
   @@map("companies")
 }
@@ -195,6 +200,9 @@ model User {
   sentMessages            Message[]                @relation("SentMessages")
   scheduledMessages       ScheduledMessage[]
   createdCampaigns        Campaign[]           @relation("CreatedCampaigns")
+  ownedDeals              Deal[]               @relation("DealOwner")
+  dealActivities          DealActivity[]       @relation("DealActivityAuthor")
+  assignedDealActivities  DealActivity[]       @relation("DealActivityAssignee")
 
   @@unique([companyId, email])
   @@index([companyId])
@@ -297,6 +305,7 @@ model Contact {
   conversations       Conversation[]
   consentLogs         ConsentLog[]
   campaignRecipients  CampaignRecipient[]
+  deals               Deal[]
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
 
@@ -359,6 +368,7 @@ model Conversation {
   messages         Message[]
   scheduledMessages ScheduledMessage[]
   aiMeta           AiConversationMeta?
+  deals            Deal[]
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @updatedAt @map("updated_at")
 
@@ -837,4 +847,131 @@ model UsageMeter {
   @@unique([companyId, period])
   @@index([companyId, period])
   @@map("usage_meters")
+}
+
+// ============================================================
+// CRM — Funis de venda, negócios e atividades
+// Pipeline → PipelineStage → Deal → DealActivity
+// Um negócio pode nascer de uma conversa (conversationId) e fica
+// sempre ligado a um contato, para aparecer no inbox e na ficha 360°.
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+model Pipeline {
+  id        String          @id @default(uuid())
+  companyId String          @map("company_id")
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  color     String          @default("#34d399")
+  isDefault Boolean         @default(false) @map("is_default")
+  position  Int             @default(0)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  stages    PipelineStage[]
+  deals     Deal[]
+
+  @@index([companyId])
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id          String   @id @default(uuid())
+  companyId   String   @map("company_id")
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  pipelineId  String   @map("pipeline_id")
+  pipeline    Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name        String
+  color       String   @default("#a1a1aa")
+  probability Int      @default(10) // 0–100, usado na previsão ponderada
+  position    Int      @default(0)
+  rottenDays  Int?     @map("rotten_days") // alerta de negócio parado após N dias na etapa
+  isWon       Boolean  @default(false) @map("is_won") // etapa final de ganho (fixa)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deals       Deal[]
+
+  @@index([companyId])
+  @@index([pipelineId, position])
+  @@map("pipeline_stages")
+}
+
+model Deal {
+  id                String         @id @default(uuid())
+  companyId         String         @map("company_id")
+  company           Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  pipelineId        String         @map("pipeline_id")
+  pipeline          Pipeline       @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stageId           String         @map("stage_id")
+  stage             PipelineStage  @relation(fields: [stageId], references: [id])
+  contactId         String?        @map("contact_id")
+  contact           Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  conversationId    String?        @map("conversation_id")
+  conversation      Conversation?  @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  ownerId           String?        @map("owner_id")
+  owner             User?          @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  title             String
+  value             Decimal        @default(0) @db.Decimal(14, 2)
+  status            DealStatus     @default(OPEN)
+  source            String? // "Bot de triagem — WhatsApp", campanha, indicação...
+  tags              String[]       @default([])
+  products          Json           @default("[]") // [{ name, qty, price }]
+  expectedCloseDate DateTime?      @map("expected_close_date")
+  stageChangedAt    DateTime       @default(now()) @map("stage_changed_at")
+  wonAt             DateTime?      @map("won_at")
+  lostAt            DateTime?      @map("lost_at")
+  lostReason        String?        @map("lost_reason")
+  lostNote          String?        @map("lost_note")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  activities        DealActivity[]
+
+  @@index([companyId, status])
+  @@index([pipelineId, stageId])
+  @@index([contactId])
+  @@index([conversationId])
+  @@index([ownerId])
+  @@map("deals")
+}
+
+// Linha do tempo do negócio. Tarefas são atividades com dueAt
+// (CALL, TASK, MEETING, VISIT, WHATSAPP); NOTE e SYSTEM são só registro.
+model DealActivity {
+  id         String    @id @default(uuid())
+  companyId  String    @map("company_id")
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  dealId     String    @map("deal_id")
+  deal       Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  type       String // NOTE | TASK | CALL | MEETING | VISIT | WHATSAPP | SYSTEM
+  title      String?
+  content    String?   @db.Text
+  dueAt      DateTime? @map("due_at")
+  doneAt     DateTime? @map("done_at")
+  userId     String?   @map("user_id")
+  user       User?     @relation("DealActivityAuthor", fields: [userId], references: [id], onDelete: SetNull)
+  assigneeId String?   @map("assignee_id")
+  assignee   User?     @relation("DealActivityAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  meta       Json      @default("{}")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([companyId, dueAt])
+  @@index([dealId, createdAt])
+  @@index([assigneeId, doneAt])
+  @@map("deal_activities")
+}
+
+model LostReason {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([companyId])
+  @@map("lost_reasons")
 }
