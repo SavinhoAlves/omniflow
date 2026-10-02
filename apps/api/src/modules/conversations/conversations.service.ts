@@ -1,4 +1,4 @@
-import { prisma } from "@omnichannel/database";
+import { prisma, crmAutomations } from "@omnichannel/database";
 import { WhatsAppProviderFactory, WhatsAppProviderType } from "@omnichannel/providers";
 import { decryptCredentials } from "../../shared/credentials-crypto";
 import { BaileysQueueClient } from "../whatsapp/baileys-queue.client";
@@ -197,6 +197,10 @@ export class ConversationsService {
         console.error(`[conversations] Falha ao enviar via ${conv.instance.providerType}:`, err.message)
       );
 
+    // CRM: negócio sem responsável fica com quem respondeu primeiro
+    await crmAutomations.runAutomation("atribuir a quem respondeu", () =>
+      crmAutomations.onAgentReply({ companyId: conv.companyId, conversationId, userId: authorId }));
+
     return message;
   }
 
@@ -241,6 +245,14 @@ export class ConversationsService {
           lastMessageAt: new Date(),
         },
       });
+      // CRM: atendente iniciou a conversa já escolhendo um departamento
+      if (input.departmentId) {
+        const created = conversation;
+        await crmAutomations.runAutomation("criar negócio por departamento", () =>
+          crmAutomations.onConversationDepartmentChanged({
+            companyId, conversationId: created.id, departmentId: input.departmentId, actorUserId: input.authorId,
+          }));
+      }
     }
 
     if (input.templateName && instance.providerType === "META_CLOUD_API") {
@@ -332,6 +344,17 @@ export class ConversationsService {
         data: { conversationId, direction: "OUTBOUND", type: "SYSTEM", content: systemMsg },
       }),
     ]);
+
+    // CRM: transferência para um departamento pode criar o negócio
+    if (data.departmentId) {
+      const conv = await prisma.conversation.findFirst({ where: { id: conversationId }, select: { companyId: true } });
+      if (conv) {
+        await crmAutomations.runAutomation("criar negócio por departamento", () =>
+          crmAutomations.onConversationDepartmentChanged({
+            companyId: conv.companyId, conversationId, departmentId: data.departmentId,
+          }));
+      }
+    }
   }
 
   async deleteConversation(conversationId: string) {
@@ -389,6 +412,14 @@ export class ConversationsService {
       }).catch((err: Error) =>
         console.error(`[conversations] Falha ao enviar mídia:`, err.message)
       );
+    }
+
+    // CRM: atribuição a quem respondeu e avanço ao enviar a proposta
+    await crmAutomations.runAutomation("atribuir a quem respondeu", () =>
+      crmAutomations.onAgentReply({ companyId: conv.companyId, conversationId, userId: authorId }));
+    if (mediaType === "DOCUMENT") {
+      await crmAutomations.runAutomation("avançar ao enviar proposta", () =>
+        crmAutomations.onOutboundDocument({ companyId: conv.companyId, conversationId, filename: data.filename, userId: authorId }));
     }
 
     return message;

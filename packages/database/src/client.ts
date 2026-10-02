@@ -140,3 +140,5 @@ export const prisma = createPrismaClient();
 export { Prisma };
 // Exportação customizada para manter o intelisense da extensão
 export type CustomPrismaClient = ReturnType<typeof createPrismaClient>;
+// Automações do CRM — usadas pela API e pelos workers (fica no fim: importa `prisma` daqui)
+export * as crmAutomations from "./modules/crm/automations";

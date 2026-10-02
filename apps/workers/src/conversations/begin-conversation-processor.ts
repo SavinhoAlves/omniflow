@@ -1,5 +1,5 @@
 import { Worker, Job } from "bullmq";
-import { prisma, tenantStorage } from "@omnichannel/database";
+import { prisma, tenantStorage, crmAutomations } from "@omnichannel/database";
 import { QUEUE_NAMES, getRedisConnectionOptions } from "../queues/queue-names";
 import { sessionManager } from "../whatsapp/session-manager";
 import { runBotFlow } from "../workflows/workflow-engine";
@@ -103,6 +103,12 @@ export function startBeginConversationProcessor() {
           where: { id: conversationId, companyId },
           data: convUpdate,
         });
+
+        // CRM: bot direcionou para um departamento configurado → cria o negócio
+        if (result.departmentId) {
+          await crmAutomations.runAutomation("criar negócio por departamento", () =>
+            crmAutomations.onConversationDepartmentChanged({ companyId, conversationId, departmentId: result.departmentId }));
+        }
 
         console.log(
           `[begin-conv] Conv ${conversationId.slice(0, 8)}: enviados ${result.messages.length} msg(s), próximo nó=${result.nextBotNodeId ?? "fim"}`
