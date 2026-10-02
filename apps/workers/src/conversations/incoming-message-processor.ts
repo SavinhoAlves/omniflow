@@ -1,5 +1,5 @@
 import { Worker, Job } from "bullmq";
-import { prisma, tenantStorage } from "@omnichannel/database";
+import { prisma, tenantStorage, crmAutomations } from "@omnichannel/database";
 import { QUEUE_NAMES, getRedisConnectionOptions } from "../queues/queue-names";
 import { sessionManager } from "../whatsapp/session-manager";
 import { runBotFlow } from "../workflows/workflow-engine";
@@ -37,7 +37,7 @@ export function startIncomingMessageProcessor() {
         // 1. Descobre o tenant da instância
         const instance = await prisma.whatsAppInstance.findFirst({
           where: { id: instanceId },
-          select: { id: true, companyId: true, defaultDepartmentId: true },
+          select: { id: true, companyId: true, defaultDepartmentId: true, providerType: true },
         });
 
         if (!instance) {
@@ -104,6 +104,41 @@ export function startIncomingMessageProcessor() {
           }
         }
         // ─────────────────────────────────────────────────────────────────────
+
+        // ── CRM: resposta à pesquisa de satisfação ("1" a "5") ──────────────────
+        // Vem antes da busca de conversa porque a conversa original pode já
+        // estar finalizada — sem isso a nota abriria um lead novo.
+        let csat: { conversationId: string; score: number } | null = null;
+        await crmAutomations.runAutomation("receber avaliação", async () => {
+          csat = await crmAutomations.handleCsatReply({ companyId, contactId: contact.id, instanceId, text });
+        });
+        if (csat) {
+          const { conversationId: csatConvId, score } = csat as { conversationId: string; score: number };
+          const thanks = "Obrigado pela sua avaliação!";
+          await prisma.message.create({
+            data: { conversationId: csatConvId, direction: "INBOUND", type: "TEXT", content: text, providerMessageId },
+          });
+          if (instance.providerType === "BAILEYS") {
+            try {
+              await sessionManager.sendText(instanceId, fromNumber, thanks);
+              await prisma.message.create({
+                data: { conversationId: csatConvId, direction: "OUTBOUND", type: "TEXT", content: thanks },
+              });
+            } catch (err: any) {
+              console.error(`[csat] Falha ao agradecer:`, err.message);
+            }
+          } else {
+            // Canais por API (Meta, Messenger, Instagram) saem pelo scheduled-message-worker
+            await crmAutomations.runAutomation("agradecer avaliação", () =>
+              crmAutomations.scheduleAutomationMessage({ companyId, conversationId: csatConvId, text: thanks }));
+          }
+          await prisma.conversation.updateMany({
+            where: { id: csatConvId, companyId },
+            data: { lastMessageAt: new Date() },
+          });
+          console.log(`[csat] ${fromNumber} avaliou com nota ${score} (conv ${csatConvId.slice(0, 8)}).`);
+          return;
+        }
 
         // 3. Busca conversa OPEN existente (ignora LEAD — leads ficam em fila separada)
         let isNewConversation = false;
@@ -274,6 +309,13 @@ export function startIncomingMessageProcessor() {
           where: { id: conversation.id, companyId },
           data: convUpdate,
         });
+
+        // CRM: bot direcionou para um departamento configurado → cria o negócio
+        if (result.departmentId) {
+          const convId = conversation.id;
+          await crmAutomations.runAutomation("criar negócio por departamento", () =>
+            crmAutomations.onConversationDepartmentChanged({ companyId, conversationId: convId, departmentId: result.departmentId }));
+        }
 
         console.log(
           `[bot] Conv ${conversation.id.slice(0, 8)}: ` +

@@ -3,6 +3,20 @@ import {
   Phone, MessageSquare, MapPin, CheckSquare, CalendarDays, StickyNote, Bot,
 } from "lucide-vue-next"
 
+export type StageAction =
+  | { type: "create_task"; taskType: string; title: string; dueInHours: number }
+  | { type: "send_message"; text: string; delayMinutes: number }
+
+export interface PipelineAutomations {
+  createOnDepartment?: { enabled: boolean; departmentIds: string[] }
+  proposalDocument?: { enabled: boolean; keyword: string; stageId: string | null }
+  assignFirstResponder?: { enabled: boolean }
+  csatOnWon?: { enabled: boolean; message: string }
+}
+
+export const DEFAULT_CSAT_MESSAGE =
+  "Olá, {{nome}}! Obrigado pela confiança. De 1 a 5, como você avalia o nosso atendimento? Responda só com o número."
+
 export interface PipelineStage {
   id: string
   name: string
@@ -11,6 +25,7 @@ export interface PipelineStage {
   position: number
   rottenDays?: number | null
   isWon: boolean
+  onEnter?: StageAction[]
 }
 
 export interface Pipeline {
@@ -18,6 +33,7 @@ export interface Pipeline {
   name: string
   color: string
   isDefault: boolean
+  automations?: PipelineAutomations
   stages: PipelineStage[]
   _count?: { deals: number }
 }

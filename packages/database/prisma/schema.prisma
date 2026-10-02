@@ -365,6 +365,8 @@ model Conversation {
   slaBreachedAt    DateTime?          @map("sla_breached_at")     // quando o SLA foi violado (null = dentro do prazo)
   // CSAT — nota de 1 a 5 registrada pelo atendente após resolução
   csatScore        Int?               @map("csat_score")
+  // Pesquisa enviada por automação do CRM; a próxima resposta "1"–"5" vira o csatScore
+  csatRequestedAt  DateTime?          @map("csat_requested_at")
   messages         Message[]
   scheduledMessages ScheduledMessage[]
   aiMeta           AiConversationMeta?
@@ -869,6 +871,9 @@ model Pipeline {
   color     String          @default("#34d399")
   isDefault Boolean         @default(false) @map("is_default")
   position  Int             @default(0)
+  // Gatilhos ligados ao atendimento (ver crm-automations.ts): criar negócio por
+  // departamento, mover ao enviar proposta, atribuir a quem responde, CSAT ao ganhar
+  automations Json          @default("{}")
   createdAt DateTime        @default(now()) @map("created_at")
   updatedAt DateTime        @updatedAt @map("updated_at")
   stages    PipelineStage[]
@@ -890,6 +895,7 @@ model PipelineStage {
   position    Int      @default(0)
   rottenDays  Int?     @map("rotten_days") // alerta de negócio parado após N dias na etapa
   isWon       Boolean  @default(false) @map("is_won") // etapa final de ganho (fixa)
+  onEnter     Json     @default("[]") @map("on_enter") // ações ao entrar: criar tarefa, enviar mensagem
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   deals       Deal[]

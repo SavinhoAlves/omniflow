@@ -1,4 +1,4 @@
-import { prisma } from "@omnichannel/database";
+import { prisma, crmAutomations } from "@omnichannel/database";
 
 // Funil criado automaticamente na primeira vez que a empresa abre o CRM —
 // assim o módulo funciona sem precisar rodar seed por tenant.
@@ -140,14 +140,42 @@ export class CrmService {
     data: {
       name?: string;
       color?: string;
-      stages?: { id?: string; name: string; color: string; probability: number; rottenDays?: number | null }[];
+      automations?: crmAutomations.PipelineAutomations;
+      stages?: {
+        id?: string;
+        name: string;
+        color: string;
+        probability: number;
+        rottenDays?: number | null;
+        onEnter?: crmAutomations.StageAction[];
+      }[];
+      wonStageOnEnter?: crmAutomations.StageAction[];
     }
   ) {
     const pipeline = await prisma.pipeline.findFirst({ where: { id }, include: { stages: true } });
     if (!pipeline) throw new CrmError(404, "Funil não encontrado");
 
-    if (data.name !== undefined || data.color !== undefined) {
-      await prisma.pipeline.updateMany({ where: { id }, data: { name: data.name, color: data.color } });
+    if (data.name !== undefined || data.color !== undefined || data.automations !== undefined) {
+      if (data.automations?.proposalDocument?.stageId &&
+          !pipeline.stages.some((s) => s.id === data.automations!.proposalDocument!.stageId)) {
+        throw new CrmError(400, "A etapa escolhida para a proposta não pertence a este funil");
+      }
+      await prisma.pipeline.updateMany({
+        where: { id },
+        data: {
+          name: data.name,
+          color: data.color,
+          automations: data.automations === undefined ? undefined : (data.automations as any),
+        },
+      });
+    }
+    // A etapa de ganho é fixa, mas suas ações (ex.: tarefa de pós-venda) são editáveis
+    const wonStageForActions = pipeline.stages.find((s) => s.isWon);
+    if (data.wonStageOnEnter !== undefined && wonStageForActions) {
+      await prisma.pipelineStage.updateMany({
+        where: { id: wonStageForActions.id },
+        data: { onEnter: crmAutomations.readStageActions(data.wonStageOnEnter) as any },
+      });
     }
 
     if (data.stages) {
@@ -173,6 +201,7 @@ export class CrmService {
           probability: Math.max(0, Math.min(100, s.probability)),
           rottenDays: s.rottenDays ?? null,
           position: i,
+          ...(s.onEnter !== undefined ? { onEnter: crmAutomations.readStageActions(s.onEnter) as any } : {}),
         };
         if (s.id && pipeline.stages.some((p) => p.id === s.id)) {
           await prisma.pipelineStage.updateMany({ where: { id: s.id }, data: fields });
@@ -209,6 +238,10 @@ export class CrmService {
       data: names.map((name, i) => ({ companyId, name, position: i })),
     });
     return this.listLostReasons(companyId);
+  }
+
+  async listDepartments() {
+    return prisma.department.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
   }
 
   async listMembers() {
@@ -347,6 +380,13 @@ export class CrmService {
 
     await this.log(companyId, deal.id, userId, "SYSTEM", "Negócio criado", { kind: "created", stage: stage.name });
 
+    await crmAutomations.runAutomation("ações da etapa inicial", () =>
+      crmAutomations.runStageEntry({ companyId, dealId: deal.id, stageId: stage.id, actorUserId: userId }));
+    if (won) {
+      await crmAutomations.runAutomation("pesquisa de satisfação", () =>
+        crmAutomations.onDealWon({ companyId, dealId: deal.id, actorUserId: userId }));
+    }
+
     if (data.followUpAt) {
       await prisma.dealActivity.create({
         data: {
@@ -386,27 +426,14 @@ export class CrmService {
   }
 
   async moveDeal(companyId: string, id: string, stageId: string, userId: string) {
-    const deal = await prisma.deal.findFirst({ where: { id }, include: { stage: true } });
-    if (!deal) throw new CrmError(404, "Negócio não encontrado");
-    const target = await prisma.pipelineStage.findFirst({ where: { id: stageId, pipelineId: deal.pipelineId } });
-    if (!target) throw new CrmError(400, "Etapa inválida para este funil");
-    if (target.id === deal.stageId) return this.getDeal(id);
-
-    await prisma.deal.updateMany({
-      where: { id },
-      data: {
-        stageId: target.id,
-        stageChangedAt: new Date(),
-        status: target.isWon ? "WON" : "OPEN",
-        wonAt: target.isWon ? new Date() : null,
-        lostAt: null,
-        lostReason: null,
-        lostNote: null,
-      },
-    });
-    await this.log(companyId, id, userId, "SYSTEM", `Etapa alterada: ${deal.stage.name} → ${target.name}`, {
-      kind: "stage_change", from: deal.stage.name, to: target.name,
-    });
+    // A lógica de mudança de etapa é compartilhada com as automações (worker),
+    // que também movem negócios e disparam as ações da etapa de destino.
+    try {
+      await crmAutomations.moveDealToStage({ companyId, dealId: id, stageId, actorUserId: userId });
+    } catch (err: any) {
+      if (err?.statusCode) throw new CrmError(err.statusCode, err.message);
+      throw err;
+    }
     return this.getDeal(id);
   }
 

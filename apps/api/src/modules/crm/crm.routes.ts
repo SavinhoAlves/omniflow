@@ -57,12 +57,42 @@ const stageSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   probability: z.number().int().min(0).max(100),
   rottenDays: z.number().int().min(1).max(365).nullish(),
+  onEnter: z.lazy(() => stageActionsSchema).optional(),
+});
+
+const stageActionsSchema = z.array(
+  z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("create_task"),
+      taskType: z.enum(["TASK", "CALL", "MEETING", "VISIT", "WHATSAPP"]),
+      title: z.string().min(1).max(200),
+      dueInHours: z.number().min(0).max(24 * 90),
+    }),
+    z.object({
+      type: z.literal("send_message"),
+      text: z.string().min(1).max(1000),
+      delayMinutes: z.number().int().min(0).max(60 * 24 * 30),
+    }),
+  ])
+).max(10);
+
+const automationsSchema = z.object({
+  createOnDepartment: z.object({ enabled: z.boolean(), departmentIds: z.array(z.string().uuid()).max(50) }).optional(),
+  proposalDocument: z.object({
+    enabled: z.boolean(),
+    keyword: z.string().max(50),
+    stageId: z.string().uuid().nullable(),
+  }).optional(),
+  assignFirstResponder: z.object({ enabled: z.boolean() }).optional(),
+  csatOnWon: z.object({ enabled: z.boolean(), message: z.string().max(1000) }).optional(),
 });
 
 const updatePipelineSchema = z.object({
   name: z.string().min(1).max(80).optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  automations: automationsSchema.optional(),
   stages: z.array(stageSchema).min(1).max(15).optional(),
+  wonStageOnEnter: stageActionsSchema.optional(),
 });
 
 function parseBody<T extends ZodTypeAny>(schema: T, body: unknown, reply: FastifyReply): z.infer<T> | null {
@@ -112,6 +142,9 @@ export async function crmRoutes(app: FastifyInstance) {
     await service.deletePipeline(id);
     return reply.status(204).send();
   });
+
+  // Usado pela configuração das automações ("criar negócio ao direcionar para…")
+  app.get("/crm/departments", manage, async () => service.listDepartments());
 
   app.get("/crm/lost-reasons", view, async (request) => {
     return service.listLostReasons(request.auth!.companyId!);
