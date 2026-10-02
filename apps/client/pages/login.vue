@@ -1,399 +1,482 @@
 <template>
-  <div class="min-h-screen w-full flex bg-neutral-950">
+  <div class="flex min-h-screen w-full bg-zinc-950 font-['Geist',system-ui,sans-serif] text-sm text-zinc-50">
     <!-- ============================================================
-         Painel esquerdo — contexto de marca. Some abaixo de lg:
-         em telas pequenas o produto ainda não é o foco (o form é),
-         então não vale a pena espremer essa peça.
+         Painel de marca — some abaixo de lg: no celular quem abre o
+         login já conhece o produto e quer entrar rápido. Fica fixo e
+         na altura da tela para nunca empurrar o título para baixo da
+         dobra em notebooks de 768 px.
     ============================================================ -->
-    <div
-      class="hidden lg:flex lg:w-[58%] relative overflow-hidden flex-col justify-between p-14 xl:p-20"
+    <section
+      aria-label="Sobre o OmniFlow"
+      class="brand-grid hidden flex-col justify-between gap-8 border-r border-zinc-900 bg-surface-brand px-12 py-12 lg:sticky lg:top-0 lg:flex lg:h-screen lg:basis-[52%] xl:px-14"
     >
-      <!-- Gradiente de fundo -->
-      <div class="absolute inset-0 bg-gradient-to-br from-neutral-950 via-[#0a1730] to-neutral-950" />
-      <div class="absolute -top-32 -left-24 w-[600px] h-[600px] bg-blue-600/20 blur-[160px] rounded-full" />
-      <div class="absolute bottom-0 right-0 w-[500px] h-[500px] bg-cyan-500/10 blur-[150px] rounded-full" />
-
-      <!-- Wordmark -->
-      <div class="relative flex items-center gap-2.5">
-        <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-sm font-bold text-white">
-          O
-        </div>
-        <span class="text-lg font-semibold text-white tracking-tight">
-          Omni<span class="text-blue-400">Flow</span>
-        </span>
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-[9px] bg-blue-600 font-bold text-white">O</div>
+        <span class="text-lg font-semibold tracking-tight">Omni<span class="text-blue-400">Flow</span></span>
       </div>
 
-      <!-- Peça visual autoral: canais convergindo pra uma caixa única -->
-      <div class="relative flex-1 flex items-center justify-center py-10">
-        <svg
-          viewBox="0 0 480 480"
-          class="w-full max-w-md"
-          role="img"
-          aria-label="Ilustração de várias conversas convergindo para uma caixa de entrada única"
-        >
-          <defs>
-            <linearGradient id="flowLine" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#60a5fa" />
-              <stop offset="100%" stop-color="#22d3ee" />
-            </linearGradient>
-            <linearGradient id="inboxFill" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#3b82f6" />
-              <stop offset="100%" stop-color="#22d3ee" />
-            </linearGradient>
-          </defs>
-
-          <!-- Linhas de fluxo dos canais até a caixa central -->
-          <g fill="none" stroke="url(#flowLine)" stroke-width="1.5" stroke-linecap="round" opacity="0.55">
-            <path class="flow-path" d="M 84 92 Q 160 130 240 240" style="animation-delay:0s" />
-            <path class="flow-path" d="M 396 92 Q 320 130 240 240" style="animation-delay:.4s" />
-            <path class="flow-path" d="M 84 388 Q 160 350 240 240" style="animation-delay:.8s" />
-            <path class="flow-path" d="M 396 388 Q 320 350 240 240" style="animation-delay:1.2s" />
-          </g>
-
-          <!-- Nó: mensagem de texto -->
-          <g transform="translate(84 92)">
-            <circle r="36" fill="#0f1b2e" stroke="#1e3a5f" stroke-width="1" />
-            <path d="M-13,-9 h26 a4,4 0 0 1 4,4 v11 a4,4 0 0 1 -4,4 h-15 l-7,6 v-6 h-4 a4,4 0 0 1 -4,-4 v-11 a4,4 0 0 1 4,-4 z"
-                  fill="none" stroke="#7dd3fc" stroke-width="1.6" stroke-linejoin="round" />
-          </g>
-
-          <!-- Nó: e-mail -->
-          <g transform="translate(396 92)">
-            <circle r="36" fill="#0f1b2e" stroke="#1e3a5f" stroke-width="1" />
-            <path d="M-14,-9 h28 a2,2 0 0 1 2,2 v14 a2,2 0 0 1 -2,2 h-28 a2,2 0 0 1 -2,-2 v-14 a2,2 0 0 1 2,-2 z M-14,-8 L0,3 14,-8"
-                  fill="none" stroke="#7dd3fc" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" />
-          </g>
-
-          <!-- Nó: chamada -->
-          <g transform="translate(84 388)">
-            <circle r="36" fill="#0f1b2e" stroke="#1e3a5f" stroke-width="1" />
-            <path d="M-11,-14 c-4,3 -5,7 -3,11 c3,6 9,12 15,15 c4,2 8,1 11,-3 l3,-4 c1,-2 1,-4 -1,-5 l-6,-4 c-2,-1 -3,-1 -5,1 l-2,2 c-3,-2 -6,-5 -8,-8 l2,-2 c2,-2 2,-3 1,-5 l-4,-6 c-1,-2 -3,-2 -5,-1 z"
-                  fill="none" stroke="#7dd3fc" stroke-width="1.5" stroke-linejoin="round" />
-          </g>
-
-          <!-- Nó: câmera / mídia -->
-          <g transform="translate(396 388)">
-            <circle r="36" fill="#0f1b2e" stroke="#1e3a5f" stroke-width="1" />
-            <path d="M-14,-6 h6 l2,-3 h12 l2,3 h6 a2,2 0 0 1 2,2 v14 a2,2 0 0 1 -2,2 h-28 a2,2 0 0 1 -2,-2 v-14 a2,2 0 0 1 2,-2 z"
-                  fill="none" stroke="#7dd3fc" stroke-width="1.6" stroke-linejoin="round" />
-            <circle cx="0" cy="4" r="5.5" fill="none" stroke="#7dd3fc" stroke-width="1.6" />
-          </g>
-
-          <!-- Caixa central (destino) -->
-          <g transform="translate(240 240)">
-            <circle class="pulse-ring" r="40" fill="none" stroke="#22d3ee" stroke-width="1" />
-            <rect x="-34" y="-34" width="68" height="68" rx="18" fill="url(#inboxFill)" />
-            <path d="M-16,-6 h32 v18 a4,4 0 0 1 -4,4 h-24 a4,4 0 0 1 -4,-4 z M-16,-6 l6,10 h20 l6,-10"
-                  fill="none" stroke="white" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" />
-          </g>
-        </svg>
-      </div>
-
-      <!-- Copy + destaques -->
-      <div class="relative space-y-6">
-        <div class="space-y-3 max-w-sm">
-          <h2 class="text-2xl xl:text-[1.75rem] font-semibold tracking-tight text-white leading-snug">
-            Todos os canais do seu cliente, numa única conversa.
-          </h2>
-          <p class="text-sm text-zinc-400 leading-relaxed">
-            WhatsApp, e-mail e mais chegam no mesmo painel — sua equipe atende sem trocar de tela.
-          </p>
-        </div>
-
-        <ul class="flex flex-wrap gap-x-6 gap-y-2 text-xs text-zinc-500">
-          <li class="flex items-center gap-1.5">
-            <Check class="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
-            Múltiplos atendentes por número
-          </li>
-          <li class="flex items-center gap-1.5">
-            <Check class="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
-            Departamentos e transferência
-          </li>
-          <li class="flex items-center gap-1.5">
-            <Check class="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
-            Histórico unificado do cliente
-          </li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         Painel direito — formulário. É o painel inteiro que rola,
-         não um cartão flutuando: em telas grandes ocupa 42%, em
-         telas pequenas ocupa 100% (fallback simples, não é o alvo
-         principal do design por enquanto).
-    ============================================================ -->
-    <div class="w-full lg:w-[42%] flex items-center justify-center px-6 py-12 sm:px-12 bg-[radial-gradient(circle,#ffffff06_1px,transparent_1px)] [background-size:28px_28px]">
-      <div class="w-full max-w-sm">
-        <!-- Wordmark (visível só quando o painel de marca está escondido) -->
-        <div class="flex lg:hidden items-center gap-2.5 mb-10 justify-center">
-          <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-sm font-bold text-white">
-            O
+      <!-- Miniatura do produto: uma conversa que vira negócio no funil.
+           Conteúdo fixo e fictício — não vem da API. -->
+      <div class="flex w-full max-w-[440px] flex-col gap-3.5 self-center">
+        <div class="rounded-2xl border border-zinc-800 bg-surface-card p-4">
+          <div class="mb-3 flex items-center gap-2 text-xs text-zinc-400">
+            <span class="h-2 w-2 rounded-full bg-green-500" />
+            WhatsApp · Juliana Souza
+            <span class="ml-auto text-ink-muted">agora</span>
           </div>
-          <span class="text-lg font-semibold text-white tracking-tight">
-            Omni<span class="text-blue-400">Flow</span>
-          </span>
-        </div>
-
-        <h1 class="text-2xl font-semibold tracking-tight text-white">
-          Entrar
-        </h1>
-        <p class="text-sm text-zinc-500 mt-1.5 mb-9">
-          Acesse o painel de atendimento da sua empresa.
-        </p>
-
-        <form class="space-y-5" novalidate @submit.prevent="login">
-          <!-- Empresa -->
-          <div>
-            <label for="companySlug" class="text-sm text-zinc-400">
-              Empresa
-            </label>
-
-            <div class="relative mt-2">
-              <Building2
-                class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500"
-                aria-hidden="true"
-              />
-
-              <input
-                id="companySlug"
-                ref="companySlugInput"
-                v-model="companySlug"
-                name="companySlug"
-                type="text"
-                autocomplete="organization"
-                autocapitalize="off"
-                autocorrect="off"
-                spellcheck="false"
-                placeholder="omniflow"
-                class="w-full rounded-xl border border-zinc-700 bg-neutral-900/80 pl-11 pr-4 py-3 text-white outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
-                @blur="companySlug = slugify(companySlug)"
-              />
-            </div>
-
-            <p class="mt-1.5 text-xs text-zinc-500">
-              Identificador sem espaços — ex: <span class="text-zinc-400">empresa-demo</span>
+          <div class="flex flex-col gap-2 text-[13px] leading-relaxed">
+            <p class="max-w-[82%] self-start rounded-xl rounded-bl-[4px] bg-zinc-900 px-3 py-2">
+              Oi! Quanto fica um sistema solar para a minha padaria?
+            </p>
+            <p class="max-w-[82%] self-end rounded-xl rounded-br-[4px] bg-blue-900 px-3 py-2">
+              Te envio a proposta ainda hoje, Juliana.
             </p>
           </div>
+        </div>
 
-          <!-- Email -->
-          <div>
-            <label for="email" class="text-sm text-zinc-400">
-              Email
-            </label>
+        <div aria-hidden="true" class="flex items-center gap-2.5 pl-6 text-xs text-ink-muted">
+          <svg width="16" height="28" viewBox="0 0 16 28" fill="none" stroke="#3b82f6" stroke-width="1.6" stroke-linecap="round"><path d="M8 2v22M3 19l5 5 5-5" /></svg>
+          vira um negócio no funil
+        </div>
 
-            <div class="relative mt-2">
-              <Mail
-                class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500"
-                aria-hidden="true"
-              />
-
-              <input
-                id="email"
-                v-model="email"
-                name="email"
-                type="email"
-                autocomplete="email"
-                placeholder="admin@empresa.com"
-                class="w-full rounded-xl border border-zinc-700 bg-neutral-900/80 pl-11 pr-4 py-3 text-white outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
-              />
+        <div class="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-surface-card p-4">
+          <div class="flex items-start gap-3">
+            <div class="flex-1">
+              <p class="text-sm font-semibold">Padaria Bom Grão — Sistema 12 kWp</p>
+              <p class="mt-0.5 text-xs text-zinc-400">Juliana Souza · responsável Rafael</p>
             </div>
+            <span class="text-[15px] font-semibold tabular-nums">R$ 64.500</span>
           </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="flex items-center gap-1.5 rounded-full bg-zinc-800 px-2.5 py-0.5 text-zinc-200">
+              <span class="h-[7px] w-[7px] rounded-full bg-violet-400" />Proposta enviada
+            </span>
+            <span class="text-ink-muted">Follow-up amanhã, 9h</span>
+          </div>
+        </div>
+      </div>
 
-          <!-- Senha -->
-          <div>
-            <label for="password" class="text-sm text-zinc-400">
-              Senha
-            </label>
+      <div class="flex max-w-[460px] flex-col gap-4">
+        <h2 class="text-3xl font-semibold leading-tight tracking-tight">Atendimento e vendas no mesmo lugar.</h2>
+        <p class="text-[15px] leading-relaxed text-zinc-400">
+          Cada conversa do WhatsApp, Instagram ou Messenger pode virar um negócio, com etapa, valor e próxima tarefa.
+        </p>
+        <ul aria-label="Canais suportados" class="flex flex-wrap gap-2">
+          <li v-for="c in CHANNELS" :key="c" class="rounded-full border border-zinc-800 px-3 py-1 text-xs text-zinc-300">{{ c }}</li>
+        </ul>
+      </div>
+    </section>
 
-            <div class="relative mt-2">
-              <Lock
-                class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500"
-                aria-hidden="true"
-              />
+    <!-- ============================================================
+         Formulário
+    ============================================================ -->
+    <main class="flex flex-1 items-start justify-center px-6 pb-6 pt-8 lg:items-center lg:py-12">
+      <!-- No mobile ocupa a altura útil (100dvh menos o padding de 3.5rem) para o rodapé encostar embaixo -->
+      <div class="flex min-h-[calc(100dvh-3.5rem)] w-full max-w-[400px] flex-col gap-6 lg:min-h-0 lg:gap-7">
+        <!-- Logo + frase: só quando o painel de marca está escondido -->
+        <div class="flex flex-col items-center gap-2 lg:hidden">
+          <div class="flex items-center gap-2.5">
+            <div class="flex h-8 w-8 items-center justify-center rounded-[9px] bg-blue-600 font-bold text-white">O</div>
+            <span class="text-lg font-semibold tracking-tight">Omni<span class="text-blue-400">Flow</span></span>
+          </div>
+          <p class="text-xs text-ink-muted">Atendimento e vendas no mesmo lugar</p>
+        </div>
 
-              <input
-                id="password"
-                v-model="password"
-                name="password"
-                :type="showPassword ? 'text' : 'password'"
-                autocomplete="current-password"
-                placeholder="••••••••"
-                class="w-full rounded-xl border border-zinc-700 bg-neutral-900/80 pl-11 pr-11 py-3 text-white outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
-              />
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight lg:text-[26px]">Entrar no OmniFlow</h1>
+          <p class="mt-1.5 text-sm leading-relaxed text-zinc-400">Use o acesso que o administrador da sua empresa criou para você.</p>
+        </div>
 
+        <!-- Avisos: sessão expirada (status) e erros do servidor (alert) -->
+        <Transition name="banner">
+          <div
+            v-if="showExpired"
+            role="status"
+            class="flex gap-2.5 rounded-xl border border-amber-900 bg-amber-950/60 px-3.5 py-3 text-[13px] leading-snug text-amber-300"
+          >
+            <Clock class="mt-px h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>Sua sessão expirou. Entre de novo para continuar de onde parou.</span>
+          </div>
+        </Transition>
+        <Transition name="banner">
+          <div
+            v-if="serverError"
+            role="alert"
+            class="flex gap-2.5 rounded-xl border border-red-900 bg-red-950/60 px-3.5 py-3 text-[13px] leading-snug text-red-300"
+          >
+            <CircleAlert class="mt-px h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{{ serverError }}</span>
+          </div>
+        </Transition>
+
+        <form class="flex flex-col gap-[18px]" novalidate @submit.prevent="submit">
+          <AuthField
+            id="company"
+            ref="companyField"
+            v-model="company"
+            label="Empresa"
+            autocomplete="organization"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            maxlength="64"
+            placeholder="sua-empresa"
+            :disabled="busy"
+            :error="companyError"
+            hint="O identificador da sua empresa, por exemplo empresa-demo."
+            @input="onEdit"
+            @blur="onBlurCompany"
+          />
+
+          <AuthField
+            id="email"
+            ref="emailField"
+            v-model="email"
+            label="E-mail"
+            type="email"
+            inputmode="email"
+            autocomplete="username"
+            maxlength="254"
+            placeholder="voce@empresa.com"
+            :disabled="busy"
+            :error="emailError"
+            :invalid="credentialsRejected"
+            @input="onEdit"
+            @blur="touched.email = true"
+          />
+
+          <AuthField
+            id="password"
+            ref="passwordField"
+            v-model="password"
+            label="Senha"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="current-password"
+            maxlength="128"
+            placeholder="Sua senha"
+            :disabled="busy"
+            :error="passwordError"
+            :invalid="credentialsRejected"
+            :warning="capsLock ? 'Caps Lock está ativado.' : ''"
+            @input="onEdit"
+            @keydown="detectCaps"
+            @keyup="detectCaps"
+            @blur="touched.password = true; capsLock = false"
+          >
+            <template #trailing>
               <button
                 type="button"
                 :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'"
-                class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-zinc-500 transition hover:text-zinc-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+                :aria-pressed="showPassword"
+                class="flex h-11 w-11 items-center justify-center rounded-[10px] text-zinc-400 transition-colors duration-150 hover:text-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 lg:h-[38px] lg:w-[38px] lg:rounded-[9px]"
                 @click="showPassword = !showPassword"
               >
-                <EyeOff v-if="showPassword" class="h-4 w-4" aria-hidden="true" />
-                <Eye v-else class="h-4 w-4" aria-hidden="true" />
+                <EyeOff v-if="showPassword" class="h-[18px] w-[18px]" aria-hidden="true" />
+                <Eye v-else class="h-[18px] w-[18px]" aria-hidden="true" />
               </button>
-            </div>
-          </div>
+            </template>
+          </AuthField>
 
-          <!-- Error -->
-          <Transition name="fade">
-            <div
-              v-if="error"
-              role="alert"
-              aria-live="polite"
-              class="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+          <label class="flex min-h-[44px] cursor-pointer items-center gap-2.5 text-sm text-zinc-300 lg:min-h-8 lg:text-[13px]">
+            <input
+              v-model="remember"
+              type="checkbox"
+              :disabled="busy"
+              class="h-5 w-5 accent-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 lg:h-[18px] lg:w-[18px]"
             >
-              {{ error }}
-            </div>
-          </Transition>
+            Lembrar a empresa neste dispositivo
+          </label>
 
-          <!-- Button -->
           <button
             type="submit"
-            :disabled="loading || !canSubmit"
-            class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 py-3 font-semibold text-white transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.99]"
+            :disabled="busy"
+            :aria-busy="phase === 'loading'"
+            class="flex h-[52px] items-center justify-center gap-2.5 rounded-xl text-base font-semibold text-white transition-[background-color,transform] duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 enabled:hover:bg-blue-700 enabled:active:scale-[0.99] motion-reduce:transition-none lg:h-12 lg:text-[15px]"
+            :class="buttonClass"
           >
-            <Loader2 v-if="loading" class="h-4 w-4 animate-spin" aria-hidden="true" />
-            {{ loading ? "Entrando..." : "Entrar" }}
+            <Loader2 v-if="phase === 'loading'" class="h-[18px] w-[18px] animate-spin motion-reduce:animate-[spin_2.4s_linear_infinite]" aria-hidden="true" />
+            <Check v-else-if="phase === 'success'" class="h-[18px] w-[18px]" aria-hidden="true" />
+            {{ buttonLabel }}
           </button>
+
+          <!-- Anúncio ao fim do bloqueio por excesso de tentativas -->
+          <p class="sr-only" aria-live="polite">{{ announcement }}</p>
         </form>
 
-        <div class="mt-10 border-t border-zinc-900 pt-6 text-center text-xs text-zinc-700">
-          OmniFlow © {{ new Date().getFullYear() }}
+        <div class="mt-auto flex flex-col gap-3.5 border-t border-zinc-900 pt-5 text-[13px] leading-relaxed text-zinc-400 lg:mt-0">
+          <p>Esqueceu a senha ou não sabe o identificador da empresa? Peça ao administrador do OmniFlow na sua empresa.</p>
+          <div class="flex justify-between text-xs text-ink-muted">
+            <span>OmniFlow © {{ year }}</span>
+            <a href="#" class="text-blue-300 hover:text-blue-200 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400">Privacidade e LGPD</a>
+          </div>
         </div>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Building2, Mail, Lock, Eye, EyeOff, Loader2, Check } from "lucide-vue-next"
+import { Check, CircleAlert, Clock, Eye, EyeOff, Loader2 } from "lucide-vue-next"
 
-definePageMeta({
-  layout: "auth",
+definePageMeta({ layout: "auth" })
+
+// Geist só nesta tela (o resto do app segue a fonte do sistema)
+useHead({
+  title: "Entrar",
+  link: [
+    { rel: "preconnect", href: "https://fonts.googleapis.com" },
+    { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" },
+    { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" },
+  ],
 })
 
-const config = useRuntimeConfig()
+const CHANNELS = ["WhatsApp", "Instagram", "Messenger"]
+const REMEMBER_KEY = "omniflow:last-company"
+const REQUEST_TIMEOUT_MS = 15_000
+const SUCCESS_DELAY_MS = 600
 
-const companySlugInput = ref<HTMLInputElement | null>(null)
-const companySlug = ref("")
+const MSG = {
+  credentials: "Empresa, e-mail ou senha incorretos. Confira os dados e tente de novo.",
+  rateLimit: "Muitas tentativas de login. Aguarde 1 minuto e tente de novo.",
+  server: "O OmniFlow está com instabilidade. Tente de novo em alguns minutos.",
+  network: "Não foi possível conectar. Verifique sua internet e tente de novo.",
+}
+
+const config = useRuntimeConfig()
+const route = useRoute()
+const year = new Date().getFullYear()
+
+type Phase = "idle" | "loading" | "success" | "blocked"
+
+const company = ref("")
 const email = ref("")
 const password = ref("")
 const showPassword = ref(false)
+const remember = ref(true)
+const capsLock = ref(false)
+const phase = ref<Phase>("idle")
+const serverError = ref("")
+const credentialsRejected = ref(false)
+const submitted = ref(false)
+const touched = reactive({ company: false, email: false, password: false })
+const expiredDismissed = ref(false)
+const retryIn = ref(0)
+const announcement = ref("")
 
-const loading = ref(false)
-const error = ref("")
+const companyField = ref<{ focus: () => void } | null>(null)
+const emailField = ref<{ focus: () => void } | null>(null)
+const passwordField = ref<{ focus: () => void } | null>(null)
 
-// Validação leve no cliente — evita uma ida ao servidor pra dizer o
-// óbvio (campo vazio, email mal formado), mas não substitui a
-// validação real que já acontece na API.
-const canSubmit = computed(() => {
-  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)
-  return companySlug.value.trim().length > 0 && emailLooksValid && password.value.length > 0
+let retryTimer: ReturnType<typeof setInterval> | null = null
+let redirectTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Validação ────────────────────────────────────────────────────────────────
+// Erros só aparecem depois de sair do campo ou tentar enviar.
+
+const slugValid = computed(() => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(company.value))
+const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
+
+const companyError = computed(() => {
+  if (!(touched.company || submitted.value)) return ""
+  if (!company.value) return "Informe o identificador da sua empresa."
+  if (!slugValid.value) return "Use só letras minúsculas, números e hífen."
+  return ""
 })
+const emailError = computed(() =>
+  (touched.email || submitted.value) && !emailValid.value ? "Digite um e-mail válido, como voce@empresa.com." : ""
+)
+const passwordError = computed(() =>
+  (touched.password || submitted.value) && !password.value ? "Digite sua senha." : ""
+)
+
+const busy = computed(() => phase.value !== "idle")
+const showExpired = computed(() => route.query.expired === "1" && !expiredDismissed.value && phase.value !== "success")
+
+const buttonLabel = computed(() => {
+  if (phase.value === "loading") return "Entrando…"
+  if (phase.value === "success") return "Abrindo o painel…"
+  if (phase.value === "blocked") {
+    const m = Math.floor(retryIn.value / 60)
+    const s = String(retryIn.value % 60).padStart(2, "0")
+    return `Aguarde ${m}:${s}`
+  }
+  return "Entrar"
+})
+
+const buttonClass = computed(() => {
+  if (phase.value === "success") return "bg-emerald-700"
+  if (phase.value === "blocked") return "bg-zinc-800 text-zinc-400"
+  if (phase.value === "loading") return "bg-blue-700"
+  return "bg-blue-600"
+})
+
+// Só caminhos internos: evita usar o login como redirecionador aberto
+const redirectTarget = computed(() => {
+  const r = route.query.redirect
+  return typeof r === "string" && r.startsWith("/") && !r.startsWith("//") && !r.startsWith("/login")
+    ? r
+    : "/dashboard"
+})
+
+// ── Interações ───────────────────────────────────────────────────────────────
 
 function slugify(value: string) {
   return value
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
 }
 
+function onBlurCompany() {
+  company.value = slugify(company.value)
+  touched.company = true
+}
+
+/** Qualquer edição tira o aviso de credenciais (o bloqueio por 429 segue até zerar) */
+function onEdit() {
+  if (phase.value !== "blocked") serverError.value = ""
+  credentialsRejected.value = false
+}
+
+function detectCaps(e: KeyboardEvent) {
+  if (typeof e.getModifierState === "function") capsLock.value = e.getModifierState("CapsLock")
+}
+
+function rememberCompany() {
+  try {
+    if (remember.value) localStorage.setItem(REMEMBER_KEY, company.value)
+    else localStorage.removeItem(REMEMBER_KEY)
+  } catch {
+    // aba anônima ou armazenamento bloqueado: só não lembra
+  }
+}
+
+function startCooldown(seconds: number) {
+  phase.value = "blocked"
+  retryIn.value = seconds
+  announcement.value = ""
+  if (retryTimer) clearInterval(retryTimer)
+  retryTimer = setInterval(() => {
+    retryIn.value -= 1
+    if (retryIn.value <= 0) {
+      clearInterval(retryTimer!)
+      retryTimer = null
+      phase.value = "idle"
+      serverError.value = ""
+      announcement.value = "Você já pode tentar de novo."
+    }
+  }, 1000)
+}
+
+async function submit() {
+  if (busy.value) return
+  submitted.value = true
+  expiredDismissed.value = true
+  serverError.value = ""
+  credentialsRejected.value = false
+  company.value = slugify(company.value)
+
+  // Foco no primeiro campo inválido
+  if (companyError.value) return companyField.value?.focus()
+  if (emailError.value) return emailField.value?.focus()
+  if (passwordError.value) return passwordField.value?.focus()
+
+  phase.value = "loading"
+  try {
+    const response = await $fetch<{ accessToken: string }>(`${config.public.apiUrl}/auth/login`, {
+      method: "POST",
+      credentials: "include",
+      timeout: REQUEST_TIMEOUT_MS,
+      body: {
+        companySlug: company.value,
+        email: email.value.trim().toLowerCase(),
+        password: password.value, // nunca trim: espaços fazem parte da senha
+      },
+    })
+
+    useCookie("access_token", { sameSite: "lax", httpOnly: false }).value = response.accessToken
+    rememberCompany()
+    phase.value = "success"
+    redirectTimer = setTimeout(() => navigateTo(redirectTarget.value), SUCCESS_DELAY_MS)
+  } catch (err: any) {
+    // Decide pelo status HTTP, não pelo formato do corpo: no 429 o `error`
+    // da API é um objeto, e a tela antiga mostrava "[object Object]".
+    const status: number | undefined = err?.response?.status ?? err?.statusCode
+    phase.value = "idle"
+
+    if (status === 429) {
+      const retryAfter = Number(err?.response?.headers?.get?.("retry-after"))
+      serverError.value = MSG.rateLimit
+      startCooldown(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.ceil(retryAfter) : 60)
+    } else if (status === 400 || status === 401) {
+      // Texto fixo: não revela se a empresa ou o e-mail existem
+      serverError.value = MSG.credentials
+      credentialsRejected.value = true
+      password.value = ""
+      submitted.value = false
+      touched.password = false
+      await nextTick()
+      passwordField.value?.focus()
+    } else if (status && status >= 500) {
+      serverError.value = MSG.server
+    } else {
+      serverError.value = MSG.network // timeout (15 s) ou sem conexão
+    }
+  }
+}
+
+// ── Ciclo de vida ────────────────────────────────────────────────────────────
+
 onMounted(() => {
-  companySlugInput.value?.focus()
-})
-
-async function login() {
-  if (loading.value) return // evita duplo envio (ex: Enter + clique quase simultâneos)
-
-  if (!canSubmit.value) {
-    error.value = "Preencha empresa, email e senha corretamente."
+  // Já autenticado: não faz sentido mostrar o formulário
+  if (useCookie("access_token").value) {
+    navigateTo(redirectTarget.value, { replace: true })
     return
   }
 
   try {
-    loading.value = true
-    error.value = ""
-
-    const response: any = await $fetch(
-      `${config.public.apiUrl}/auth/login`,
-      {
-        method: "POST",
-        credentials: "include",
-        body: {
-          companySlug: slugify(companySlug.value),
-          email: email.value.trim().toLowerCase(),
-          password: password.value,
-        },
-      }
-    )
-
-    const cookie = useCookie("access_token", {
-      sameSite: "lax",
-      httpOnly: false,
-    })
-
-    cookie.value = response.accessToken
-
-    await navigateTo("/dashboard")
-  } catch (err: any) {
-    error.value =
-      err?.data?.error ??
-      err?.data?.message ??
-      "Falha ao realizar login. Verifique suas credenciais."
-  } finally {
-    loading.value = false
+    const saved = localStorage.getItem(REMEMBER_KEY)
+    if (saved) company.value = saved
+  } catch {
+    // armazenamento indisponível
   }
-}
+
+  nextTick(() => (company.value ? emailField.value?.focus() : companyField.value?.focus()))
+})
+
+onBeforeUnmount(() => {
+  if (retryTimer) clearInterval(retryTimer)
+  if (redirectTimer) clearTimeout(redirectTimer)
+})
 </script>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.25s;
+/* Grade de pontos do painel de marca: 1 px a cada 24 px */
+.brand-grid {
+  background-image: radial-gradient(#1f1f23 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.banner-enter-active {
+  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.banner-leave-active {
+  transition: opacity 150ms ease-in;
+}
+.banner-enter-from {
   opacity: 0;
   transform: translateY(-8px);
 }
-
-.flow-path {
-  stroke-dasharray: 5 9;
-  animation: dash-flow 2.4s linear infinite;
-}
-
-@keyframes dash-flow {
-  to {
-    stroke-dashoffset: -140;
-  }
-}
-
-.pulse-ring {
-  transform-origin: center;
-  animation: pulse-ring 2.6s ease-out infinite;
-}
-
-@keyframes pulse-ring {
-  0% {
-    opacity: 0.6;
-    transform: scale(0.85);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.35);
-  }
+.banner-leave-to {
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fade-enter-active,
-  .fade-leave-active,
-  .flow-path,
-  .pulse-ring {
-    animation: none;
+  .banner-enter-active,
+  .banner-leave-active {
     transition: none;
   }
 }

@@ -74,6 +74,9 @@ export function buildServer() {
       }
     },
     credentials: true,
+    // Sem isso o navegador esconde o Retry-After do 429 e a tela de login
+    // não consegue mostrar quanto falta para tentar de novo
+    exposedHeaders: ["Retry-After"],
   });
 
   // Hook global de tenant — usa o ÚNICO prisma client tenant-aware

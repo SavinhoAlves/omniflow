@@ -100,7 +100,12 @@ export function useApi() {
         // na próxima navegação; aqui só garante que o cookie inválido não
         // fica pendurado tentando de novo.
         if (import.meta.client) {
-          await navigateTo("/login")
+          // A tela de login explica que a sessão expirou e volta para onde a pessoa estava
+          const here = window.location.pathname + window.location.search
+          await navigateTo({
+            path: "/login",
+            query: { expired: "1", ...(here.startsWith("/login") ? {} : { redirect: here }) },
+          })
         }
       }
 
