@@ -273,15 +273,18 @@ async function loadOptions() {
     const [p, m] = await Promise.all([
       api<Pipeline[]>("/crm/pipelines"),
       api<Member[]>("/crm/members"),
+      // O layout "chat" (caixa de entrada, contatos) não carrega o usuário no store
+      authStore.user ? Promise.resolve() : authStore.fetchMe(),
     ])
     pipelines.value = p
     members.value = m
+    const me = authStore.user?.id
+    form.ownerId = me && m.some((x) => x.id === me) ? me : m[0]?.id ?? ""
     const pipeline = p.find((x) => x.id === props.pipelineId) ?? p.find((x) => x.isDefault) ?? p[0]
     form.pipelineId = pipeline?.id ?? ""
     form.stageId = props.stageId && pipeline?.stages.some((s) => s.id === props.stageId)
       ? props.stageId
       : pipeline?.stages[0]?.id ?? ""
-    if (!form.ownerId && m[0]) form.ownerId = m[0].id
   } catch (err) {
     error.value = apiErrorMessage(err, "Não foi possível carregar os funis.")
   }
