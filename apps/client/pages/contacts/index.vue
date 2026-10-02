@@ -136,6 +136,14 @@
             </span>
             <!-- Actions -->
             <button
+              v-if="!selected.anonymizedAt"
+              class="flex h-8 items-center gap-1.5 rounded-xl bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-500"
+              @click="showNewDeal = true"
+            >
+              <Plus :size="13" />
+              Novo negócio
+            </button>
+            <button
               class="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-600 transition hover:bg-zinc-800 hover:text-emerald-400"
               title="Exportar dados (LGPD)"
               @click="exportData"
@@ -261,7 +269,7 @@
               <NuxtLink
                 v-for="conv in contactConvs"
                 :key="conv.id"
-                to="/conversations"
+                :to="`/conversations?id=${conv.id}`"
                 class="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 transition hover:border-zinc-700"
               >
                 <span
@@ -285,17 +293,75 @@
               </NuxtLink>
             </div>
           </div>
+
+          <!-- ── Negócios (CRM) ── -->
+          <div v-if="detailTab === 'deals'" class="space-y-4 p-6">
+            <div class="grid grid-cols-2 gap-3 lg:grid-cols-3">
+              <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+                <p class="text-xs text-zinc-400">Valor ganho (LTV)</p>
+                <p class="mt-1 text-xl font-semibold text-white">{{ formatBRL(dealStats.won) }}</p>
+              </div>
+              <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+                <p class="text-xs text-zinc-400">Em negociação</p>
+                <p class="mt-1 text-xl font-semibold text-white">{{ formatBRL(dealStats.open) }}</p>
+              </div>
+              <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+                <p class="text-xs text-zinc-400">Negócios</p>
+                <p class="mt-1 text-xl font-semibold text-white">{{ contactDeals.length }}</p>
+              </div>
+            </div>
+
+            <div v-if="loadingDeals" class="space-y-3">
+              <div v-for="i in 2" :key="i" class="h-16 animate-pulse rounded-2xl border border-zinc-800 bg-zinc-900" />
+            </div>
+            <div v-else-if="contactDeals.length === 0" class="flex flex-col items-center rounded-2xl border border-dashed border-zinc-800 py-12 text-center">
+              <p class="text-sm text-zinc-400">Nenhum negócio para este contato.</p>
+              <button
+                class="mt-4 flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-500"
+                @click="showNewDeal = true"
+              >
+                <Plus :size="14" /> Criar negócio
+              </button>
+            </div>
+            <div v-else class="space-y-2.5">
+              <NuxtLink
+                v-for="d in contactDeals"
+                :key="d.id"
+                :to="`/crm/deals/${d.id}`"
+                class="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 transition hover:border-zinc-700"
+              >
+                <span class="h-2 w-2 shrink-0 rounded-full" :style="{ background: d.status === 'LOST' ? '#f87171' : d.stage?.color }" />
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium text-white">{{ d.title }}</p>
+                  <p class="text-xs text-zinc-400">
+                    {{ d.status === 'LOST' ? `Perdido · ${d.lostReason}` : d.status === 'WON' ? 'Ganho' : d.stage?.name }}
+                    <template v-if="d.owner"> · {{ d.owner.name }}</template>
+                  </p>
+                </div>
+                <span class="shrink-0 text-sm font-semibold tabular-nums text-white">{{ formatBRL(d.value) }}</span>
+              </NuxtLink>
+            </div>
+          </div>
         </div>
       </template>
     </div>
+
+    <CrmNewDealModal
+      :open="showNewDeal"
+      :contact-id="selected?.id"
+      :contact-name="selected ? (selected.name || cleanPhone(selected.phoneNumber)) : null"
+      @close="showNewDeal = false"
+      @created="onDealCreated"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import {
-  Search, BookUser, Pencil, X, Trash2, Download, MessageSquare,
+  Search, BookUser, Pencil, X, Trash2, Download, MessageSquare, Plus,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
+import { formatBRL, type Deal } from "../../composables/useCrm"
 
 definePageMeta({ layout: "chat", middleware: "auth" })
 useHead({ title: "Contatos" })
@@ -332,6 +398,7 @@ const FILTERS = [
 
 const DETAIL_TABS = [
   { value: "info",          label: "Informações" },
+  { value: "deals",         label: "Negócios"    },
   { value: "conversations", label: "Histórico"   },
 ]
 
@@ -369,6 +436,15 @@ const loadingConsent = ref(false)
 const consentHistory = ref<ConsentLog[]>([])
 const loadingConvs   = ref(false)
 const contactConvs   = ref<any[]>([])
+
+const loadingDeals   = ref(false)
+const contactDeals   = ref<Deal[]>([])
+const showNewDeal    = ref(false)
+
+const dealStats = computed(() => ({
+  won:  contactDeals.value.filter((d) => d.status === "WON").reduce((a, d) => a + d.value, 0),
+  open: contactDeals.value.filter((d) => d.status === "OPEN").reduce((a, d) => a + d.value, 0),
+}))
 
 const filteredContacts = computed(() => {
   let list = contacts.value
@@ -423,8 +499,23 @@ async function select(contact: Contact) {
   editingNotes.value = false
   consentHistory.value = []
   contactConvs.value   = []
+  contactDeals.value   = []
   loadConsent()
   loadConvs()
+  loadDeals()
+}
+
+async function loadDeals() {
+  if (!selected.value) return
+  loadingDeals.value = true
+  try { contactDeals.value = await api<Deal[]>(`/crm/deals?contactId=${selected.value.id}`) } catch {}
+  loadingDeals.value = false
+}
+
+function onDealCreated() {
+  showNewDeal.value = false
+  detailTab.value = "deals"
+  loadDeals()
 }
 
 async function loadConsent() {
@@ -532,5 +623,17 @@ async function anonymize() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  // Links do CRM abrem o contato direto: /contacts?id=<contactId>
+  const id = useRoute().query.id
+  if (typeof id !== "string" || !id) return
+  const found = contacts.value.find((c) => c.id === id)
+  if (found) {
+    select(found)
+  } else {
+    // Fora dos 100 mais recentes da lista: busca individualmente
+    try { select(await api<Contact>(`/contacts/${id}`)) } catch {}
+  }
+})
 </script>

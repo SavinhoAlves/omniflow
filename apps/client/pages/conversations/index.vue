@@ -731,6 +731,16 @@
 
       <div class="mx-4 h-px bg-zinc-800/60" />
 
+      <!-- CRM: negócio do contato -->
+      <CrmDealPanel
+        :contact-id="activeConversation.contact.id"
+        :contact-name="activeConversation.contact.name || activeConversation.contact.phoneNumber"
+        :conversation-id="activeConversation.id"
+        :channel-label="providerLabel[activeConversation.instance?.providerType] ?? null"
+      />
+
+      <div class="mx-4 h-px bg-zinc-800/60" />
+
       <!-- Priority -->
       <div class="px-4 py-4">
         <span class="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-zinc-600">Prioridade</span>
@@ -2282,6 +2292,9 @@ function closeMenuOnClickOutside() {
 onMounted(async () => {
   loadConversations()
   loadSidebarData()
+  // Links do CRM abrem a conversa direto: /conversations?id=<conversationId>
+  const deepLinkId = useRoute().query.id
+  if (typeof deepLinkId === "string" && deepLinkId) selectConversation(deepLinkId)
   listInterval = setInterval(loadConversations, 8000)
   document.addEventListener("click", closeMenuOnClickOutside)
 

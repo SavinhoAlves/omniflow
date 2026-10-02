@@ -115,6 +115,20 @@
           </div>
           <ChevronRight :size="18" class="text-zinc-600" />
         </NuxtLink>
+
+        <NuxtLink
+          to="/crm/settings"
+          class="flex items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition hover:border-zinc-700"
+        >
+          <div class="rounded-xl bg-violet-500/10 p-3 text-violet-300">
+            <SquareKanban :size="22" />
+          </div>
+          <div class="flex-1">
+            <h2 class="font-semibold text-white">Funis de venda</h2>
+            <p class="mt-0.5 text-sm text-zinc-500">Etapas, probabilidades e motivos de perda do CRM.</p>
+          </div>
+          <ChevronRight :size="18" class="text-zinc-600" />
+        </NuxtLink>
       </section>
 
       <!-- Diagnóstico técnico -->
@@ -161,6 +175,7 @@ import {
   ChevronRight,
   Database,
   LoaderCircle,
+  SquareKanban,
 } from "lucide-vue-next"
 import { useApi } from "../../composables/useApi"
 
