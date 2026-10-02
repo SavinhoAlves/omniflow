@@ -59,6 +59,8 @@
               {{ camp.instance?.name ?? '—' }}
               <span v-if="camp.template">· {{ camp.template.name }}</span>
             </p>
+            <p v-if="camp.messageText" class="mt-1 line-clamp-2 text-xs text-zinc-400">“{{ camp.messageText }}”</p>
+            <p v-else-if="!camp.template" class="mt-1 text-xs text-amber-300">Sem conteúdo — não pode ser disparada</p>
           </div>
           <span
             class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide"
@@ -141,7 +143,7 @@
           <div class="flex items-start justify-between border-b border-zinc-800 px-6 py-5">
             <div>
               <h2 class="text-base font-semibold text-white">Nova campanha</h2>
-              <p class="mt-0.5 text-xs text-zinc-500">Defina nome, canal e audiência do disparo.</p>
+              <p class="mt-0.5 text-xs text-zinc-500">Defina nome, canal, mensagem e audiência do disparo.</p>
             </div>
             <button class="text-zinc-600 transition hover:text-zinc-300" @click="showModal = false">
               <X :size="18" />
@@ -165,6 +167,54 @@
                 <option value="" disabled>Selecione...</option>
                 <option v-for="inst in instances" :key="inst.id" :value="inst.id">{{ inst.name }}</option>
               </select>
+              <p v-if="!instances.length" class="mt-1.5 text-xs text-amber-300">Nenhum canal conectado. Conecte um canal em Canais para criar campanhas.</p>
+            </div>
+
+            <!-- Conteúdo: template (WhatsApp oficial) ou mensagem livre (demais canais) -->
+            <div v-if="form.instanceId && isMetaInstance">
+              <label class="text-sm font-medium text-zinc-400">Template aprovado <span class="text-red-400">*</span></label>
+              <select
+                v-model="form.templateId"
+                class="mt-1.5 w-full rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+              >
+                <option value="" disabled>{{ loadingTemplates ? 'Carregando templates…' : 'Selecione...' }}</option>
+                <option v-for="t in approvedTemplates" :key="t.id" :value="t.id">{{ t.name }} · {{ t.language }}</option>
+              </select>
+              <p class="mt-1.5 text-xs text-zinc-500">O WhatsApp oficial só permite mensagens proativas com template aprovado pela Meta.</p>
+              <p v-if="!loadingTemplates && !approvedTemplates.length" class="mt-1 text-xs text-amber-300">
+                Nenhum template aprovado neste canal. Sincronize em Templates.
+              </p>
+
+              <div v-if="templateVars.length" class="mt-3 space-y-2">
+                <p class="text-xs font-medium text-zinc-400">Variáveis do template</p>
+                <label v-for="n in templateVars" :key="n" class="flex items-center gap-2">
+                  <span class="w-10 shrink-0 text-xs tabular-nums text-zinc-500" v-text="`{{${n}}}`" />
+                  <input
+                    v-model="form.templateParams[String(n)]"
+                    :aria-label="`Valor da variável ${n}`"
+                    maxlength="500"
+                    placeholder="Texto fixo, ou {{nome}} para o nome do contato"
+                    class="flex-1 rounded-lg border border-zinc-700/60 bg-zinc-800/60 px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-blue-500"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div v-else-if="form.instanceId">
+              <label class="text-sm font-medium text-zinc-400">Mensagem <span class="text-red-400">*</span></label>
+              <textarea
+                v-model="form.messageText"
+                rows="4"
+                maxlength="4000"
+                placeholder="Ex.: Oi, {{nome}}! Temos uma condição especial de energia solar este mês. Quer saber mais?"
+                class="mt-1.5 w-full resize-y rounded-xl border border-zinc-700/60 bg-zinc-800/60 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-blue-500"
+              />
+              <p class="mt-1 text-xs text-zinc-500">Use <code v-pre class="text-zinc-300">{{nome}}</code> para o nome do contato.</p>
+            </div>
+
+            <div v-if="previewText" class="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+              <p class="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-500">Prévia para “Maria”</p>
+              <p class="whitespace-pre-line rounded-lg bg-emerald-950/60 px-3 py-2 text-sm text-emerald-50">{{ previewText }}</p>
             </div>
 
             <div>
@@ -187,6 +237,7 @@
               </div>
               <p v-if="audienceCount !== null" class="mt-2 text-xs text-zinc-500">
                 <span class="font-semibold text-white">{{ audienceCount }}</span> contatos elegíveis
+                · quem pediu para sair (opt-out) nunca recebe
               </p>
             </div>
 
@@ -206,7 +257,7 @@
 
           <div class="shrink-0 border-t border-zinc-800 px-6 py-4">
             <button
-              :disabled="saving || !form.name.trim() || !form.instanceId"
+              :disabled="saving || !form.name.trim() || !form.instanceId || !contentReady"
               class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               @click="saveCampaign"
             >
@@ -245,6 +296,7 @@ interface Campaign {
   scheduledAt?: string | null
   audienceFilter?: unknown
   template?: { id: string; name: string; language: string } | null
+  messageText?: string | null
   instance?: { id: string; name: string } | null
 }
 
@@ -290,14 +342,60 @@ const showModal    = ref(false)
 const saving       = ref(false)
 const formError    = ref("")
 const audienceCount = ref<number | null>(null)
-const instances    = ref<{ id: string; name: string }[]>([])
+const instances    = ref<{ id: string; name: string; providerType: string }[]>([])
+const templates    = ref<{ id: string; name: string; language: string; status: string; components: any[] }[]>([])
+const loadingTemplates = ref(false)
 
 const form = reactive({
   name: "",
   instanceId: "",
   segment: "opted_in" as "opted_in" | "all",
   scheduledAt: "",
+  templateId: "",
+  templateParams: {} as Record<string, string>,
+  messageText: "",
 })
+
+const isMetaInstance = computed(() =>
+  instances.value.find((i) => i.id === form.instanceId)?.providerType === "META_CLOUD_API"
+)
+const approvedTemplates = computed(() => templates.value.filter((t) => t.status === "APPROVED"))
+const selectedTemplate = computed(() => templates.value.find((t) => t.id === form.templateId) ?? null)
+const templateBody = computed(() =>
+  (selectedTemplate.value?.components ?? []).find((c: any) => String(c?.type).toUpperCase() === "BODY")?.text ?? ""
+)
+const templateVars = computed(() =>
+  [...new Set([...templateBody.value.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])))].sort((a, b) => a - b)
+)
+const withName = (text: string) => text.replace(/\{\{\s*nome\s*\}\}/gi, "Maria")
+const previewText = computed(() => {
+  if (isMetaInstance.value) {
+    return withName(templateBody.value.replace(/\{\{(\d+)\}\}/g, (m: string, n: string) => form.templateParams[n] || m))
+  }
+  return withName(form.messageText.trim())
+})
+const contentReady = computed(() =>
+  isMetaInstance.value
+    ? !!form.templateId && templateVars.value.every((n) => form.templateParams[String(n)]?.trim())
+    : !!form.messageText.trim()
+)
+
+async function loadTemplates(instanceId: string) {
+  templates.value = []
+  form.templateId = ""
+  form.templateParams = {}
+  if (!instanceId || !isMetaInstance.value) return
+  loadingTemplates.value = true
+  try {
+    templates.value = await api(`/whatsapp/instances/${instanceId}/templates`)
+  } catch {
+    templates.value = []
+  } finally {
+    loadingTemplates.value = false
+  }
+}
+
+watch(() => form.instanceId, (id) => loadTemplates(id))
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
@@ -313,7 +411,7 @@ async function loadCampaigns() {
 
 async function loadInstances() {
   try {
-    const list = await api<{ id: string; name: string; connectionStatus: string }[]>("/whatsapp/instances")
+    const list = await api<{ id: string; name: string; connectionStatus: string; providerType: string }[]>("/whatsapp/instances")
     instances.value = list.filter((i) => i.connectionStatus === "CONNECTED")
   } catch {}
 }
@@ -377,6 +475,8 @@ function openCreate() {
   form.instanceId  = instances.value[0]?.id ?? ""
   form.segment     = "opted_in"
   form.scheduledAt = ""
+  form.messageText = ""
+  loadTemplates(form.instanceId)
   formError.value  = ""
   audienceCount.value = null
   showModal.value  = true
@@ -394,7 +494,7 @@ async function previewAudience() {
 }
 
 async function saveCampaign() {
-  if (!form.name.trim() || !form.instanceId) return
+  if (!form.name.trim() || !form.instanceId || !contentReady.value) return
   saving.value    = true
   formError.value = ""
   try {
@@ -404,7 +504,14 @@ async function saveCampaign() {
         name: form.name.trim(),
         instanceId: form.instanceId,
         audienceFilter: { segment: form.segment },
-        scheduledAt: form.scheduledAt || undefined,
+        // datetime-local vem sem fuso ("2026-10-02T10:00"); a API exige ISO completo
+        scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : undefined,
+        ...(isMetaInstance.value
+          ? {
+              templateId: form.templateId,
+              templateParams: Object.fromEntries(templateVars.value.map((n) => [String(n), form.templateParams[String(n)].trim()])),
+            }
+          : { messageText: form.messageText.trim() }),
       },
     })
     showModal.value = false

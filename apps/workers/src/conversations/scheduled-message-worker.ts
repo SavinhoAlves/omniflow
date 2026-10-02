@@ -1,28 +1,7 @@
 import { Queue, Worker, Job } from "bullmq";
 import { prisma, tenantStorage } from "@omnichannel/database";
-import { WhatsAppProviderFactory, WhatsAppProviderType } from "@omnichannel/providers";
 import { getRedisConnectionOptions } from "../queues/queue-names";
-import { sessionManager } from "../whatsapp/session-manager";
-import { decryptCredentials } from "../whatsapp/credentials-crypto";
-
-// Canais por API (Meta, Evolution, Messenger, Instagram). Baileys não passa
-// por aqui: a sessão vive neste mesmo processo e é usada direto.
-const providerFactory = new WhatsAppProviderFactory({
-  getCredentials: async (instanceId) => {
-    const inst = await tenantStorage.run({ isPlatform: true }, () =>
-      prisma.whatsAppInstance.findFirstOrThrow({ where: { id: instanceId }, select: { credentials: true } })
-    );
-    if (!inst.credentials) throw new Error(`Instância ${instanceId} sem credenciais`);
-    return decryptCredentials(inst.credentials as string);
-  },
-  baileysQueue: {
-    enqueue: async () => {
-      throw new Error("Baileys é enviado direto pela sessão do worker");
-    },
-  },
-});
-
-type MediaKind = "image" | "video" | "audio" | "document";
+import { sendTextViaChannel, type MediaKind } from "../whatsapp/channel-sender";
 
 /** Entrega uma mensagem agendada pelo canal da conversa e registra no histórico */
 async function deliver(msg: {
@@ -53,14 +32,12 @@ async function deliver(msg: {
     ? { url: msg.mediaUrl, kind: (["image", "video", "audio"].includes(msg.mediaType ?? "") ? msg.mediaType : "document") as MediaKind }
     : null;
 
-  if (conv.instance.providerType === "BAILEYS") {
-    if (media) await sessionManager.sendMedia(conv.instance.id, to, media.url, media.kind, msg.content);
-    else await sessionManager.sendText(conv.instance.id, to, msg.content);
-  } else {
-    const provider = providerFactory.get(conv.instance.providerType as WhatsAppProviderType);
-    if (media) await provider.sendMediaMessage(conv.instance.id, { to, mediaType: media.kind, mediaUrl: media.url, caption: msg.content });
-    else await provider.sendTextMessage(conv.instance.id, { to, text: msg.content });
-  }
+  // providerMessageId permite que o status de entrega (webhook Meta) atualize esta mensagem
+  const providerMessageId = await sendTextViaChannel(
+    { instanceId: conv.instance.id, providerType: conv.instance.providerType, to },
+    msg.content,
+    media
+  );
 
   await prisma.message.create({
     data: {
@@ -70,6 +47,7 @@ async function deliver(msg: {
       content: msg.content,
       mediaUrl: media?.url,
       authorId: msg.createdById,
+      providerMessageId: providerMessageId ?? undefined,
     },
   });
   await prisma.conversation.updateMany({ where: { id: conv.id }, data: { lastMessageAt: new Date() } });

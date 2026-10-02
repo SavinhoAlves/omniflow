@@ -15,9 +15,52 @@ const createSchema = z.object({
   instanceId: z.string().uuid(),
   templateId: z.string().uuid().optional(),
   audienceFilter: audienceFilterSchema.optional().default({}),
-  templateParams: z.record(z.string()).optional().default({}),
+  templateParams: z.record(z.string().max(500)).optional().default({}),
+  messageText: z.string().max(4000).optional(),
   scheduledAt: z.string().datetime().optional(),
 });
+
+/**
+ * Garante que a campanha tem o que enviar no canal escolhido: a Meta só aceita
+ * template aprovado da própria instância; os demais canais aceitam texto livre
+ * (ou o corpo de um template). Retorna a mensagem de erro, ou null se ok.
+ */
+async function contentError(companyId: string, input: { instanceId: string; templateId?: string | null; messageText?: string | null }) {
+  return tenantStorage.run({ companyId }, async () => {
+    const instance = await prisma.whatsAppInstance.findFirst({
+      where: { id: input.instanceId, companyId },
+      select: { providerType: true },
+    });
+    if (!instance) return "Canal não encontrado";
+    const template = input.templateId
+      ? await prisma.template.findFirst({ where: { id: input.templateId, companyId }, select: { instanceId: true, status: true, name: true } })
+      : null;
+    if (input.templateId && !template) return "Template não encontrado";
+    if (template && template.instanceId !== input.instanceId) return "O template escolhido pertence a outro canal";
+    if (instance.providerType === "META_CLOUD_API") {
+      if (!template) return "No WhatsApp oficial a campanha precisa de um template aprovado";
+      if (template.status !== "APPROVED") return `O template "${template.name}" não está aprovado pela Meta`;
+      return null;
+    }
+    if (!input.messageText?.trim() && !template) return "Escreva a mensagem da campanha";
+    return null;
+  });
+}
+
+/**
+ * Filtro de público usado na prévia e no disparo — os dois precisam bater.
+ * Contatos com opt-out nunca entram, em nenhum segmento (LGPD): o opt-out
+ * não limpa consentGivenAt, então só o filtro de consentimento não basta.
+ */
+function audienceWhere(companyId: string, filter: z.infer<typeof audienceFilterSchema> | Record<string, any>) {
+  const where: any = { companyId, anonymizedAt: null, optOut: false };
+  if (filter.segment === "opted_in" || !filter.segment) {
+    where.consentGivenAt = { not: null };
+  }
+  if (filter.tags?.length) where.tags = { hasSome: filter.tags };
+  if (filter.contactIds?.length) where.id = { in: filter.contactIds };
+  return where;
+}
 
 export async function campaignsRoutes(app: FastifyInstance) {
   // T7.1: Campaign CRUD + audience preview
@@ -74,7 +117,12 @@ export async function campaignsRoutes(app: FastifyInstance) {
     { preHandler: requirePermission(PERMISSIONS.WHATSAPP_MANAGE_INSTANCES) },
     async (request, reply) => {
       const auth = (request as any).auth!;
-      const body = createSchema.parse(request.body);
+      const parsed = createSchema.safeParse(request.body);
+      if (!parsed.success) return reply.status(400).send({ error: "Dados inválidos", issues: parsed.error.issues });
+      const body = parsed.data;
+
+      const invalid = await contentError(auth.companyId, body);
+      if (invalid) return reply.status(400).send({ error: invalid });
 
       const campaign = await tenantStorage.run({ companyId: auth.companyId }, () =>
         prisma.campaign.create({
@@ -86,6 +134,7 @@ export async function campaignsRoutes(app: FastifyInstance) {
             templateId: body.templateId,
             audienceFilter: body.audienceFilter as any,
             templateParams: body.templateParams as any,
+            messageText: body.messageText?.trim() || null,
             scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : undefined,
           },
         })
@@ -111,6 +160,7 @@ export async function campaignsRoutes(app: FastifyInstance) {
             ...(body.templateId !== undefined ? { templateId: body.templateId } : {}),
             ...(body.audienceFilter ? { audienceFilter: body.audienceFilter as any } : {}),
             ...(body.templateParams ? { templateParams: body.templateParams as any } : {}),
+            ...(body.messageText !== undefined ? { messageText: body.messageText.trim() || null } : {}),
             ...(body.scheduledAt ? { scheduledAt: new Date(body.scheduledAt) } : {}),
           },
         })
@@ -140,19 +190,7 @@ export async function campaignsRoutes(app: FastifyInstance) {
       const auth = (request as any).auth!;
       const body = audienceFilterSchema.parse(request.body);
 
-      const where: any = {
-        companyId: auth.companyId,
-        anonymizedAt: null,
-      };
-      if (body.segment === "opted_in") {
-        where.consentGivenAt = { not: null };
-      }
-      if (body.tags?.length) {
-        where.tags = { hasSome: body.tags };
-      }
-      if (body.contactIds?.length) {
-        where.id = { in: body.contactIds };
-      }
+      const where = audienceWhere(auth.companyId, body);
 
       const count = await tenantStorage.run({ companyId: auth.companyId }, () =>
         prisma.contact.count({ where })
@@ -177,14 +215,11 @@ export async function campaignsRoutes(app: FastifyInstance) {
       );
       if (!campaign) return reply.status(404).send({ error: "Campanha não encontrada ou não está em DRAFT" });
 
+      const invalid = await contentError(auth.companyId, campaign);
+      if (invalid) return reply.status(400).send({ error: invalid });
+
       // Resolve audience
-      const filter = (campaign.audienceFilter ?? {}) as any;
-      const where: any = { companyId: auth.companyId, anonymizedAt: null };
-      if (filter.segment === "opted_in" || !filter.segment) {
-        where.consentGivenAt = { not: null };
-      }
-      if (filter.tags?.length) where.tags = { hasSome: filter.tags };
-      if (filter.contactIds?.length) where.id = { in: filter.contactIds };
+      const where = audienceWhere(auth.companyId, (campaign.audienceFilter ?? {}) as any);
 
       const contacts = await tenantStorage.run({ companyId: auth.companyId }, () =>
         prisma.contact.findMany({
